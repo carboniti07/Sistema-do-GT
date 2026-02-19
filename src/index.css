@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 221 39% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 221 39% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 39% 11%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 21 90% 40%;
+
+    --primary-soft: 34 100% 95%;
+
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 221 39% 11%;
+
+    --muted: 220 9% 46%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 34 100% 95%;
+    --accent-foreground: 25 95% 35%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 25 95% 53%;
+
+    --surface-2: 210 20% 98%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 221 39% 11%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 34 100% 95%;
+    --sidebar-accent-foreground: 25 95% 35%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 25 95% 53%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full h-10 px-3 bg-white border border-input rounded-lg text-foreground text-sm
+    focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/15
+    transition-all duration-150 appearance-none;
+  }
+  .input-field:read-only {
+    @apply bg-surface-2 cursor-not-allowed;
+  }
+  .input-field.error {
+    @apply border-destructive;
+  }
+
+  /* Select mais profissional (usado no Cadastro) */
+  .select-field {
+    @apply input-field pr-10;
+  }
+}
+
+@layer utilities {
+  /* Fundo laranja profissional com variação suave ao rolar */
+  .bg-brand-gradient {
+    background: linear-gradient(
+      180deg,
+      hsl(25 95% 60%) 0%,
+      hsl(25 85% 56%) 35%,
+      hsl(25 75% 52%) 65%,
+      hsl(25 70% 48%) 100%
+    );
+  }
+}
+
+/* Sonner (toast) - tema claro, profissional, dentro da paleta */
+[data-sonner-toaster] {
+  --toast-bg: hsl(var(--card));
+  --toast-border: hsl(var(--border));
+  --toast-text: hsl(var(--foreground));
+  --toast-shadow: 0 12px 24px rgba(0, 0, 0, 0.10);
+}
+
+[data-sonner-toast] {
+  background: var(--toast-bg) !important;
+  color: var(--toast-text) !important;
+  border: 1px solid var(--toast-border) !important;
+  box-shadow: var(--toast-shadow) !important;
+  border-radius: 14px !important;
+}
+
+[data-sonner-toast][data-type="success"],
+[data-sonner-toast][data-type="error"],
+[data-sonner-toast][data-type="warning"],
+[data-sonner-toast][data-type="info"] {
+  border-left: 4px solid hsl(var(--primary)) !important;
+}
+
+[data-sonner-toast] [data-icon] {
+  color: hsl(var(--primary)) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  font-weight: 700 !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: hsl(var(--muted-foreground)) !important;
+}

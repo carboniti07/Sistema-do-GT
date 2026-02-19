@@ -1,0 +1,276 @@
+import React, { useMemo } from "react";
+import AdminLayout from "../../components/AdminLayout";
+import Card from "../../components/Card";
+import StatCard from "../../components/StatCard";
+import { Users, Droplets, Sparkles, Shield, BarChart3, Building2 } from "lucide-react";
+import { mockJovens } from "../../lib/mockData";
+import { congregacoes } from "../../lib/congregacoes";
+
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
+
+function monthKey(dateStr) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "Invalid";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+function monthLabel(key) {
+  const [y, m] = key.split("-");
+  return `${m}/${y}`;
+}
+
+function isValidMonth(k) {
+  return k && k !== "Invalid" && k.includes("-");
+}
+
+function CustomTooltip({ active, payload, label, labelPrefix }) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-[0_12px_30px_rgba(0,0,0,0.12)]">
+      <div className="text-xs text-muted-foreground">
+        {labelPrefix ? `${labelPrefix}: ` : ""}
+        <span className="text-foreground font-medium">{label}</span>
+      </div>
+
+      <div className="mt-1 text-sm text-foreground font-semibold tabular-nums">
+        {payload[0].value}
+      </div>
+    </div>
+  );
+}
+
+export default function Relatorios() {
+  const totals = useMemo(() => {
+    const total = mockJovens.length;
+    const batAguas = mockJovens.filter((j) => j.batismoAguas).length;
+    const batES = mockJovens.filter((j) => j.batismoES).length;
+    const comCargo = mockJovens.filter((j) => j.cargo).length;
+    return { total, batAguas, batES, comCargo };
+  }, []);
+
+  const cadastrosPorMes = useMemo(() => {
+    const map = {};
+
+    mockJovens.forEach((j) => {
+      const k = monthKey(j.dataCadastro);
+      if (!isValidMonth(k)) return;
+      map[k] = (map[k] || 0) + 1;
+    });
+
+    const keys = Object.keys(map).sort();
+    return keys.map((k) => ({
+      mes: monthLabel(k),
+      cadastros: map[k],
+    }));
+  }, []);
+
+  const porCongregacao = useMemo(() => {
+    const base = congregacoes;
+
+    const map = {};
+    base.forEach((c) => (map[c] = 0));
+    mockJovens.forEach((j) => {
+      map[j.congregacao] = (map[j.congregacao] || 0) + 1;
+    });
+
+    return base
+      .map((c) => ({ congregacao: c, total: map[c] || 0 }))
+      .sort((a, b) => b.total - a.total);
+  }, []);
+
+  const top10Cong = useMemo(() => porCongregacao.slice(0, 10), [porCongregacao]);
+
+  const recortes = useMemo(() => {
+    const batAguasSim = mockJovens.filter((j) => j.batismoAguas).length;
+    const batAguasNao = mockJovens.length - batAguasSim;
+
+    const batESSim = mockJovens.filter((j) => j.batismoES).length;
+    const batESNao = mockJovens.length - batESSim;
+
+    const comCargo = mockJovens.filter((j) => j.cargo).length;
+    const semCargo = mockJovens.length - comCargo;
+
+    return { batAguasSim, batAguasNao, batESSim, batESNao, comCargo, semCargo };
+  }, []);
+
+  // Paleta do tema
+  const PRIMARY = "hsl(var(--primary))";
+  const GRID = "hsl(var(--border))";
+  const MUTED = "hsl(var(--muted-foreground))";
+
+  return (
+    <AdminLayout title="Relatórios">
+      <div className="space-y-6">
+        {/* StatCards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <StatCard icon={Building2} value={congregacoes.length} label="Congregações" />
+          <StatCard icon={Users} value={totals.total} label="Total de jovens" />
+          <StatCard icon={Droplets} value={totals.batAguas} label="Batizados nas Águas" />
+          <StatCard icon={Sparkles} value={totals.batES} label="Batizados com Espírito Santo" />
+          <StatCard icon={Shield} value={totals.comCargo} label="Com cargo" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Evolução */}
+          <Card>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="font-heading font-semibold text-foreground">
+                  Evolução de cadastros por mês
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Acompanhe a variação de registros ao longo do tempo.
+                </p>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+                <BarChart3 size={16} className="text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Períodos</span>
+                <span className="text-sm font-semibold text-foreground tabular-nums">
+                  {cadastrosPorMes.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="h-72">
+              {cadastrosPorMes.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  Nenhum dado disponível para o período.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={cadastrosPorMes} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+                    <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
+                    <XAxis dataKey="mes" tick={{ fill: MUTED, fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tick={{ fill: MUTED, fontSize: 12 }} />
+                    <Tooltip content={<CustomTooltip labelPrefix="Mês" />} />
+                    <Line
+                      type="monotone"
+                      dataKey="cadastros"
+                      stroke={PRIMARY}
+                      strokeWidth={3}
+                      dot={{ r: 3, stroke: PRIMARY, strokeWidth: 2, fill: "hsl(var(--card))" }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
+
+          {/* Ranking */}
+          <Card>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="font-heading font-semibold text-foreground">
+                  Ranking por congregação
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Distribuição de cadastros entre as congregações (Top 10).
+                </p>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+                <span className="text-sm text-muted-foreground">Top</span>
+                <span className="text-sm font-semibold text-foreground tabular-nums">10</span>
+              </div>
+            </div>
+
+            <div className="h-72">
+              {top10Cong.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  Nenhum dado disponível para o ranking.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={top10Cong} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+                    <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
+                    <XAxis dataKey="congregacao" hide />
+                    <YAxis allowDecimals={false} tick={{ fill: MUTED, fontSize: 12 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const row = payload[0].payload;
+                        return (
+                          <CustomTooltip
+                            active={active}
+                            payload={payload}
+                            label={row.congregacao}
+                            labelPrefix="Congregação"
+                          />
+                        );
+                      }}
+                    />
+                    <Bar dataKey="total" fill={PRIMARY} radius={[10, 10, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="mt-4 text-xs text-muted-foreground">
+              Dica: passe o mouse nas barras para ver o nome da congregação.
+            </div>
+          </Card>
+        </div>
+
+        {/* Recortes */}
+        <Card>
+          <h3 className="font-heading font-semibold text-foreground mb-4">
+            Indicadores (resumo)
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground mb-2">Batismo nas Águas</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Sim</span>
+                <span className="text-foreground font-semibold tabular-nums">{recortes.batAguasSim}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Não</span>
+                <span className="text-foreground font-semibold tabular-nums">{recortes.batAguasNao}</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground mb-2">Batismo com Espírito Santo</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Sim</span>
+                <span className="text-foreground font-semibold tabular-nums">{recortes.batESSim}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Não</span>
+                <span className="text-foreground font-semibold tabular-nums">{recortes.batESNao}</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground mb-2">Cargo eclesiástico</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Com cargo</span>
+                <span className="text-foreground font-semibold tabular-nums">{recortes.comCargo}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Sem cargo</span>
+                <span className="text-foreground font-semibold tabular-nums">{recortes.semCargo}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </AdminLayout>
+  );
+}
