@@ -243,7 +243,8 @@ export default function Cadastro() {
               <Input
                 label="Nome completo"
                 value={form.nome}
-                onChange={(v) => set("nome", formatPersonName(v))}
+                onChange={(v) => set("nome", v)}
+onBlur={() => set("nome", formatPersonName(form.nome))}
                 error={errors.nome}
               />
               <Input
