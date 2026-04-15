@@ -20,12 +20,6 @@ export const congregacoes = [
   "062 JD IPE",
 ];
 
-/**
- * Normaliza para bater com a lista oficial (evita erro por espaços/caixa).
- * - remove espaços extras
- * - mantém "/" com espaços padronizados
- * - mantém em MAIÚSCULO
- */
 export function formatCongregacao(value) {
   if (!value) return "";
 
@@ -34,4 +28,34 @@ export function formatCongregacao(value) {
     .replace(/\s+/g, " ")
     .replace(/\s*\/\s*/g, " / ")
     .toUpperCase();
+}
+
+export function slugifyCongregacao(value) {
+  if (!value) return "";
+
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\//g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function getCongregacaoNome(value) {
+  if (!value) return "";
+
+  const normalized = formatCongregacao(value);
+
+  const byName = congregacoes.find(
+    (c) => formatCongregacao(c) === normalized
+  );
+  if (byName) return byName;
+
+  const bySlug = congregacoes.find(
+    (c) => slugifyCongregacao(c) === String(value).trim().toLowerCase()
+  );
+  if (bySlug) return bySlug;
+
+  return String(value);
 }

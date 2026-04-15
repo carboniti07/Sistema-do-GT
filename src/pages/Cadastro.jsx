@@ -8,6 +8,7 @@ import SelectField from "../components/SelectField";
 import { maskCPF, maskPhone, maskCEP, unmask } from "../lib/masks";
 import { validateCPF } from "../lib/cpf";
 import { fetchAddress } from "../lib/viacep";
+import { createJovem } from "../lib/jovensApi";
 import { toast } from "sonner";
 import { congregacoes } from "../lib/congregacoes";
 
@@ -42,6 +43,7 @@ export default function Cadastro() {
   const [errors, setErrors] = useState({});
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }));
@@ -52,18 +54,19 @@ export default function Cadastro() {
     const cep = unmask(form.cep);
     if (cep.length === 8) {
       setLoadingCEP(true);
-      fetchAddress(cep).then((data) => {
-        if (data) {
-          setForm((p) => ({
-            ...p,
-            logradouro: data.logradouro,
-            bairro: data.bairro,
-            cidade: data.cidade,
-            uf: data.uf,
-          }));
-        }
-        setLoadingCEP(false);
-      });
+      fetchAddress(cep)
+        .then((data) => {
+          if (data) {
+            setForm((p) => ({
+              ...p,
+              logradouro: data.logradouro || "",
+              bairro: data.bairro || "",
+              cidade: data.cidade || "",
+              uf: data.uf || "",
+            }));
+          }
+        })
+        .finally(() => setLoadingCEP(false));
     }
   }, [form.cep]);
 
@@ -86,14 +89,48 @@ export default function Cadastro() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validate()) {
       toast.error("Corrija os campos destacados");
       return;
     }
-    toast.success("Cadastro realizado com sucesso!");
-    setForm(initialForm);
+
+    try {
+      setSaving(true);
+
+      const payload = {
+        congregacaoId: form.congregacao,
+        nome: form.nome.trim(),
+        nascimento: form.nascimento,
+        sexo: form.sexo,
+        cpf: unmask(form.cpf),
+        telefone: unmask(form.telefone),
+        cep: unmask(form.cep),
+        logradouro: form.logradouro?.trim() || "",
+        numero: form.numero.trim(),
+        complemento: form.complemento?.trim() || "",
+        bairro: form.bairro?.trim() || "",
+        cidade: form.cidade?.trim() || "",
+        uf: form.uf?.trim() || "",
+        batismoAguas: form.batismoAguas === "Sim",
+        batismoES: form.batismoES === "Sim",
+        possuiCargo: form.possuiCargo === "Sim",
+        cargo: form.possuiCargo === "Sim" ? form.cargo : "",
+        lgpd: form.lgpd,
+      };
+
+      await createJovem(payload);
+
+      toast.success("Jovem cadastrado com sucesso!");
+      setForm(initialForm);
+      setErrors({});
+    } catch (err) {
+      toast.error(err?.message || "Erro ao cadastrar jovem");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cargos = form.sexo === "Feminino" ? cargosFem : cargosMasc;
@@ -134,7 +171,6 @@ export default function Cadastro() {
       <div className="w-full max-w-[640px]">
         <Card className="w-full bg-card/92 border border-white/18 shadow-[0_18px_50px_rgba(0,0,0,0.16)] rounded-3xl">
           <form onSubmit={handleSubmit} className="space-y-2">
-            {/* ✅ AQUI é onde “subimos” o título: logo menor e sem scale */}
             <div className="flex justify-center pt-0 -mt-1">
               <Logo size="cadastro" />
             </div>
@@ -323,15 +359,21 @@ export default function Cadastro() {
               <Button
                 variant="secondary"
                 type="button"
-                onClick={() => setForm(initialForm)}
+                onClick={() => {
+                  setForm(initialForm);
+                  setErrors({});
+                }}
+                disabled={saving}
               >
                 Cancelar
               </Button>
-              <Button type="submit">Cadastrar</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Cadastrando..." : "Cadastrar"}
+              </Button>
             </div>
 
             <p className="text-center text-xs text-muted-foreground pt-3 border-t border-border">
-              &copy; 2026 UMADRUR &ndash; Sistema Oficial | Desenvolvido por Carboni
+              &copy; 2026 UMADRUR | Sistema Oficial | Desenvolvido por Carboni
             </p>
           </form>
 
@@ -344,7 +386,7 @@ export default function Cadastro() {
               <p><strong>1. Coleta de Dados</strong></p>
               <p>
                 Coletamos apenas os dados necessários para o cadastro de membros da UMADRUR,
-                incluindo: nome, CPF, telefone, endereço, informações de batismo e cargo eclesiástico.
+                incluindo nome, CPF, telefone, endereço, informações de batismo e cargo eclesiástico.
               </p>
               <p><strong>2. Finalidade</strong></p>
               <p>

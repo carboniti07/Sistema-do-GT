@@ -1,5 +1,5 @@
 import React from "react";
-
+import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
@@ -12,12 +12,70 @@ import NotFound from "./pages/NotFound.jsx";
 import Congregacoes from "./pages/admin/Congregacoes.jsx";
 import Relatorios from "./pages/admin/Relatorios.jsx";
 import Configuracoes from "./pages/admin/Configuracoes.jsx";
+import SemAcesso from "./pages/admin/SemAcesso.jsx";
+import PrimeiroAcesso from "./pages/admin/PrimeiroAcesso.jsx";
 
-
+import RequirePermission from "./auth/RequirePermission.jsx";
+import { Perms } from "./auth/permissions.js";
+import { useAuth } from "./auth/AuthContext.jsx";
+import { hasPermission } from "./auth/hasPermission.js";
 
 const queryClient = new QueryClient();
+const TOKEN_KEY = "umadrur_token";
+
+function canViewAdmin(user) {
+  return (
+    hasPermission(user, Perms.VIEW_ALL) || hasPermission(user, Perms.VIEW_OWN_CONG)
+  );
+}
+
+function FullScreenLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-sm text-muted-foreground">Carregando...</div>
+    </div>
+  );
+}
+
+function ProtectedAdminRoute({ user, loading, children }) {
+  const hasToken = !!localStorage.getItem(TOKEN_KEY);
+
+  if (loading) {
+    return <FullScreenLoading />;
+  }
+
+  if (!user && hasToken) {
+    return <FullScreenLoading />;
+  }
+
+  if (!canViewAdmin(user)) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  return children;
+}
+
+function ProtectedPermissionRoute({ user, loading, perm, children }) {
+  const hasToken = !!localStorage.getItem(TOKEN_KEY);
+
+  if (loading) {
+    return <FullScreenLoading />;
+  }
+
+  if (!user && hasToken) {
+    return <FullScreenLoading />;
+  }
+
+  return (
+    <RequirePermission user={user} perm={perm}>
+      {children}
+    </RequirePermission>
+  );
+}
 
 export default function App() {
+  const { user, loading } = useAuth();
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -26,16 +84,79 @@ export default function App() {
           <Route path="/cadastro" element={<Cadastro />} />
 
           <Route path="/admin/login" element={<Login />} />
-          <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/jovens" element={<Jovens />} />
-          <Route path="/admin/usuarios" element={<Usuarios />} />
-          <Route path="/admin/congregacoes" element={<Congregacoes />} />
-          <Route path="/admin/relatorios" element={<Relatorios />} />
-          <Route path="/admin/configuracoes" element={<Configuracoes />} />
+          <Route path="/sem-acesso" element={<SemAcesso />} />
 
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedAdminRoute user={user} loading={loading}>
+                <Dashboard />
+              </ProtectedAdminRoute>
+            }
+          />
 
+          <Route
+            path="/admin/jovens"
+            element={
+              <ProtectedAdminRoute user={user} loading={loading}>
+                <Jovens />
+              </ProtectedAdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/relatorios"
+            element={
+              <ProtectedAdminRoute user={user} loading={loading}>
+                <Relatorios />
+              </ProtectedAdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/congregacoes"
+            element={
+              <ProtectedPermissionRoute
+                user={user}
+                loading={loading}
+                perm={Perms.MANAGE_USERS}
+              >
+                <Congregacoes />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="/admin/usuarios"
+            element={
+              <ProtectedPermissionRoute
+                user={user}
+                loading={loading}
+                perm={Perms.MANAGE_USERS}
+              >
+                <Usuarios />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="/admin/configuracoes"
+            element={
+              <ProtectedPermissionRoute
+                user={user}
+                loading={loading}
+                perm={Perms.MANAGE_USERS}
+              >
+                <Configuracoes />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route path="/admin/primeiro-acesso" element={<PrimeiroAcesso />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+
+        <Toaster position="top-right" richColors closeButton />
       </BrowserRouter>
     </QueryClientProvider>
   );

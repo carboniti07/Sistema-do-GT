@@ -1,0 +1,9 @@
+export const Perms = Object.freeze({
+  VIEW_ALL: "VIEW_ALL",
+  VIEW_OWN_CONG: "VIEW_OWN_CONG",
+  CREATE: "CREATE",
+  EDIT: "EDIT",
+  APPROVE: "APPROVE",
+  DELETE: "DELETE",
+  MANAGE_USERS: "MANAGE_USERS",
+});

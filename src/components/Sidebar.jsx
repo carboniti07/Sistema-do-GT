@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -8,24 +8,53 @@ import {
   BarChart3,
   Settings,
   LogOut,
-} from 'lucide-react';
+} from "lucide-react";
 
-const menuItems = [
-  { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/jovens', label: 'Jovens', icon: Users },
-  { path: '/admin/usuarios', label: 'Usuarios', icon: UserCog },
-  { path: '/admin/congregacoes', label: 'Congregacoes', icon: Building2 },
-  { path: '/admin/relatorios', label: 'Relatorios', icon: BarChart3 },
-  { path: '/admin/configuracoes', label: 'Configuracoes', icon: Settings },
-];
+import { useAuth } from "../auth/AuthContext.jsx";
+import { hasPermission } from "../auth/hasPermission.js";
+import { Perms } from "../auth/permissions.js";
 
 export default function Sidebar({ onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const canViewAdmin =
+    hasPermission(user, Perms.VIEW_ALL) || hasPermission(user, Perms.VIEW_OWN_CONG);
+
+  const canManageUsers = hasPermission(user, Perms.MANAGE_USERS);
+  const canViewAll = hasPermission(user, Perms.VIEW_ALL);
+
+  const menuItems = useMemo(() => {
+    const items = [];
+
+    if (canViewAdmin) {
+      items.push(
+        { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { path: "/admin/jovens", label: "Jovens", icon: Users },
+        { path: "/admin/relatorios", label: "Relatórios", icon: BarChart3 }
+      );
+    }
+
+    if (canManageUsers) {
+      items.push(
+        { path: "/admin/usuarios", label: "Usuários", icon: UserCog },
+        { path: "/admin/congregacoes", label: "Congregações", icon: Building2 },
+        { path: "/admin/configuracoes", label: "Configurações", icon: Settings }
+      );
+    } else if (canViewAll) {
+      items.push(
+        { path: "/admin/congregacoes", label: "Congregações", icon: Building2 }
+      );
+    }
+
+    return items;
+  }, [canManageUsers, canViewAdmin, canViewAll]);
 
   const handleLogout = () => {
-    localStorage.removeItem('umadrur_auth');
-    navigate('/admin/login');
+    logout();
+    navigate("/admin/login", { replace: true });
+    if (onClose) onClose();
   };
 
   const handleNav = (path) => {
@@ -34,7 +63,7 @@ export default function Sidebar({ onClose }) {
   };
 
   const baseItem =
-    'w-full box-border relative flex items-center gap-3 px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors';
+    "w-full box-border relative flex items-center gap-3 px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors";
 
   return (
     <div className="w-64 bg-card h-full flex flex-col border-r border-border">
@@ -53,14 +82,18 @@ export default function Sidebar({ onClose }) {
 
           return (
             <button
-              key={item.label}
+              key={item.path}
               onClick={() => handleNav(item.path)}
-              className={`${baseItem} ${active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-surface-2'
-                }`}
+              className={`${baseItem} ${
+                active
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground hover:bg-surface-2"
+              }`}
             >
               <span
-                className={`absolute left-0 top-0 h-full w-1 ${active ? 'bg-primary' : 'bg-transparent'
-                  }`}
+                className={`absolute left-0 top-0 h-full w-1 ${
+                  active ? "bg-primary" : "bg-transparent"
+                }`}
                 aria-hidden="true"
               />
               <item.icon size={18} />
@@ -71,17 +104,12 @@ export default function Sidebar({ onClose }) {
       </nav>
 
       <div className="p-3 border-t border-border">
-
         <button
           onClick={handleLogout}
-          className={`
-      ${baseItem}
-      rounded-xl
-      text-red-600
-      hover:bg-red-50
-      hover:text-red-700
-      transition-all
-    `}
+          className="
+            w-full box-border relative flex items-center gap-3 px-4 py-2.5 min-h-[44px]
+            rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all
+          "
         >
           <LogOut size={18} />
           <span className="leading-none">Sair</span>

@@ -1,10 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import Card from "../../components/Card";
 import StatCard from "../../components/StatCard";
-import { Users, Droplets, Sparkles, Shield, BarChart3, Building2 } from "lucide-react";
-import { mockJovens } from "../../lib/mockData";
-import { congregacoes } from "../../lib/congregacoes";
+import { Users, Droplets, Sparkles, Shield, BarChart3, Building2, RefreshCcw } from "lucide-react";
+import { listJovens } from "../../lib/jovensApi";
+import { congregacoes, getCongregacaoNome } from "../../lib/congregacoes";
+import { toast } from "sonner";
+import { useAuth } from "../../auth/AuthContext.jsx";
+import { Perms } from "../../auth/permissions.js";
+import { hasPermission } from "../../auth/hasPermission.js";
 
 import {
   ResponsiveContainer,
@@ -53,19 +57,51 @@ function CustomTooltip({ active, payload, label, labelPrefix }) {
 }
 
 export default function Relatorios() {
-  const totals = useMemo(() => {
-    const total = mockJovens.length;
-    const batAguas = mockJovens.filter((j) => j.batismoAguas).length;
-    const batES = mockJovens.filter((j) => j.batismoES).length;
-    const comCargo = mockJovens.filter((j) => j.cargo).length;
-    return { total, batAguas, batES, comCargo };
+  const { user } = useAuth();
+  const [jovens, setJovens] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const canViewAll = hasPermission(user, Perms.VIEW_ALL);
+  const isLimited = !canViewAll && hasPermission(user, Perms.VIEW_OWN_CONG);
+
+  const congregacoesVisiveis = useMemo(() => {
+    if (isLimited) {
+      const ids = Array.isArray(user?.congregacaoIds) ? user.congregacaoIds : [];
+      return ids.map((id) => getCongregacaoNome(id)).filter(Boolean);
+    }
+    return congregacoes;
+  }, [isLimited, user]);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      const data = await listJovens();
+      setJovens(Array.isArray(data?.jovens) ? data.jovens : []);
+    } catch (err) {
+      toast.error(err?.message || "Erro ao carregar relatórios");
+      setJovens([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const totals = useMemo(() => {
+    const total = jovens.length;
+    const batAguas = jovens.filter((j) => j.batismoAguas).length;
+    const batES = jovens.filter((j) => j.batismoES).length;
+    const comCargo = jovens.filter((j) => j.cargo).length;
+    return { total, batAguas, batES, comCargo };
+  }, [jovens]);
 
   const cadastrosPorMes = useMemo(() => {
     const map = {};
 
-    mockJovens.forEach((j) => {
-      const k = monthKey(j.dataCadastro);
+    jovens.forEach((j) => {
+      const k = monthKey(j.createdAt || j.dataCadastro);
       if (!isValidMonth(k)) return;
       map[k] = (map[k] || 0) + 1;
     });
@@ -75,38 +111,41 @@ export default function Relatorios() {
       mes: monthLabel(k),
       cadastros: map[k],
     }));
-  }, []);
+  }, [jovens]);
 
   const porCongregacao = useMemo(() => {
-    const base = congregacoes;
-
+    const base = congregacoesVisiveis;
     const map = {};
-    base.forEach((c) => (map[c] = 0));
-    mockJovens.forEach((j) => {
-      map[j.congregacao] = (map[j.congregacao] || 0) + 1;
+
+    base.forEach((c) => {
+      map[c] = 0;
+    });
+
+    jovens.forEach((j) => {
+      const nome = getCongregacaoNome(j.congregacaoId);
+      map[nome] = (map[nome] || 0) + 1;
     });
 
     return base
       .map((c) => ({ congregacao: c, total: map[c] || 0 }))
       .sort((a, b) => b.total - a.total);
-  }, []);
+  }, [jovens, congregacoesVisiveis]);
 
   const top10Cong = useMemo(() => porCongregacao.slice(0, 10), [porCongregacao]);
 
   const recortes = useMemo(() => {
-    const batAguasSim = mockJovens.filter((j) => j.batismoAguas).length;
-    const batAguasNao = mockJovens.length - batAguasSim;
+    const batAguasSim = jovens.filter((j) => j.batismoAguas).length;
+    const batAguasNao = jovens.length - batAguasSim;
 
-    const batESSim = mockJovens.filter((j) => j.batismoES).length;
-    const batESNao = mockJovens.length - batESSim;
+    const batESSim = jovens.filter((j) => j.batismoES).length;
+    const batESNao = jovens.length - batESSim;
 
-    const comCargo = mockJovens.filter((j) => j.cargo).length;
-    const semCargo = mockJovens.length - comCargo;
+    const comCargo = jovens.filter((j) => j.cargo).length;
+    const semCargo = jovens.length - comCargo;
 
     return { batAguasSim, batAguasNao, batESSim, batESNao, comCargo, semCargo };
-  }, []);
+  }, [jovens]);
 
-  // Paleta do tema
   const PRIMARY = "hsl(var(--primary))";
   const GRID = "hsl(var(--border))";
   const MUTED = "hsl(var(--muted-foreground))";
@@ -114,17 +153,31 @@ export default function Relatorios() {
   return (
     <AdminLayout title="Relatórios">
       <div className="space-y-6">
-        {/* StatCards */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={loadData}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-surface-2 transition-colors"
+            title="Atualizar"
+          >
+            <RefreshCcw size={16} className="text-muted-foreground" />
+            Atualizar
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard icon={Building2} value={congregacoes.length} label="Congregações" />
-          <StatCard icon={Users} value={totals.total} label="Total de jovens" />
-          <StatCard icon={Droplets} value={totals.batAguas} label="Batizados nas Águas" />
-          <StatCard icon={Sparkles} value={totals.batES} label="Batizados com Espírito Santo" />
-          <StatCard icon={Shield} value={totals.comCargo} label="Com cargo" />
+          <StatCard
+            icon={Building2}
+            value={loading ? "..." : congregacoesVisiveis.length}
+            label="Congregações"
+          />
+          <StatCard icon={Users} value={loading ? "..." : totals.total} label="Total de jovens" />
+          <StatCard icon={Droplets} value={loading ? "..." : totals.batAguas} label="Batizados nas Águas" />
+          <StatCard icon={Sparkles} value={loading ? "..." : totals.batES} label="Batizados com Espírito Santo" />
+          <StatCard icon={Shield} value={loading ? "..." : totals.comCargo} label="Com cargo" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Evolução */}
           <Card>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -171,7 +224,6 @@ export default function Relatorios() {
             </div>
           </Card>
 
-          {/* Ranking */}
           <Card>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -179,13 +231,17 @@ export default function Relatorios() {
                   Ranking por congregação
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Distribuição de cadastros entre as congregações (Top 10).
+                  {isLimited
+                    ? "Distribuição da sua congregação."
+                    : "Distribuição de cadastros entre as congregações (Top 10)."}
                 </p>
               </div>
 
               <div className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
                 <span className="text-sm text-muted-foreground">Top</span>
-                <span className="text-sm font-semibold text-foreground tabular-nums">10</span>
+                <span className="text-sm font-semibold text-foreground tabular-nums">
+                  {isLimited ? congregacoesVisiveis.length : 10}
+                </span>
               </div>
             </div>
 
@@ -226,7 +282,6 @@ export default function Relatorios() {
           </Card>
         </div>
 
-        {/* Recortes */}
         <Card>
           <h3 className="font-heading font-semibold text-foreground mb-4">
             Indicadores (resumo)

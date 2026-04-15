@@ -1,28 +1,58 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Logo from '../../components/Logo';
-import Button from '../../components/Button';
-import Input from '../../components/Input';
-import Card from '../../components/Card';
-import { Eye, EyeOff, Lock } from 'lucide-react';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Logo from "../../components/Logo";
+import Button from "../../components/Button";
+import Input from "../../components/Input";
+import Card from "../../components/Card";
+import { Eye, EyeOff, Lock } from "lucide-react";
 
-import bgImg from '../../assets/bg-visitors.png';
+import bgImg from "../../assets/bg-visitors.png";
+
+import { useAuth } from "../../auth/AuthContext.jsx";
+import { api } from "../../lib/api.js";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
 
-    if (email === 'admin@umadrur.com' && senha === '123456') {
-      localStorage.setItem('umadrur_auth', 'true');
-      navigate('/admin/dashboard');
-    } else {
-      setError('Email ou senha incorretos');
+    const eEmail = String(email || "").trim().toLowerCase();
+    const eSenha = String(senha || "").trim();
+
+    if (!eEmail || !eSenha) {
+      setError("Preencha email e senha");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const data = await api("/auth/login", {
+        method: "POST",
+        body: { email: eEmail, password: eSenha },
+      });
+
+      login(data);
+
+      if (data?.user?.mustChangePassword) {
+        navigate("/admin/primeiro-acesso", { replace: true });
+        return;
+      }
+
+      navigate("/admin/dashboard", { replace: true });
+    } catch (err) {
+      setError(err?.message || "Email ou senha incorretos");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,48 +86,46 @@ export default function Login() {
             value={email}
             onChange={(v) => {
               setEmail(v);
-              setError('');
+              setError("");
             }}
             placeholder="seu@email.com"
-            error={error ? true : false} // 👈 apenas ativa visual
+            error={!!error}
           />
 
           <div className="relative">
             <Input
               label="Senha"
-              type={showPass ? 'text' : 'password'}
+              type={showPass ? "text" : "password"}
               value={senha}
               onChange={(v) => {
                 setSenha(v);
-                setError('');
+                setError("");
               }}
               placeholder="Sua senha"
-              error={error ? true : false} // 👈 apenas ativa visual
+              error={!!error}
             />
 
             <button
               type="button"
               onClick={() => setShowPass(!showPass)}
               className="absolute right-4 top-9 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
             >
               {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
-          {/* 👇 mensagem aparece UMA única vez */}
           {error && (
-            <p className="text-sm text-red-600 font-medium text-center">
-              {error}
-            </p>
+            <p className="text-sm text-red-600 font-medium text-center">{error}</p>
           )}
 
-          <Button type="submit" fullWidth className="mt-2">
-            Entrar
+          <Button type="submit" fullWidth className="mt-2" disabled={loading}>
+            {loading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
 
         <p className="text-center text-xs text-muted-foreground mt-8 pt-6 border-t border-border">
-          &copy; 2026 UMADRUR &ndash; Sistema Oficial | Desenvolvido por Carboni
+          &copy; 2026 UMADRUR | Sistema Oficial | Desenvolvido por Carboni
         </p>
       </Card>
     </div>
