@@ -4,6 +4,7 @@ import Logo from "../../components/Logo";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
 import Card from "../../components/Card";
+import Footer from "../../components/Footer";
 import { Eye, EyeOff, Lock } from "lucide-react";
 
 import bgImg from "../../assets/bg-visitors.png";
@@ -124,9 +125,7 @@ export default function Login() {
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-8 pt-6 border-t border-border">
-          &copy; 2026 UMADRUR | Sistema Oficial | Desenvolvido por Carboni
-        </p>
+        <Footer className="mt-8" />
       </Card>
     </div>
   );

@@ -5,6 +5,7 @@ import Input from "../components/Input";
 import Card from "../components/Card";
 import Modal from "../components/Modal";
 import SelectField from "../components/SelectField";
+import Footer from "../components/Footer";
 import { maskCPF, maskPhone, maskCEP, unmask } from "../lib/masks";
 import { validateCPF } from "../lib/cpf";
 import { fetchAddress } from "../lib/viacep";
@@ -372,9 +373,7 @@ export default function Cadastro() {
               </Button>
             </div>
 
-            <p className="text-center text-xs text-muted-foreground pt-3 border-t border-border">
-              &copy; 2026 UMADRUR | Sistema Oficial | Desenvolvido por Carboni
-            </p>
+            <Footer className="mt-4" />
           </form>
 
           <Modal
