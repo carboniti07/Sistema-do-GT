@@ -39,6 +39,24 @@ const initialForm = {
   lgpd: false,
 };
 
+function maskDate(value = "") {
+  const digits = String(value).replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function parseDateToISO(value = "") {
+  const cleaned = String(value).trim();
+  const match = cleaned.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  if (!match) return "";
+
+  const [, dd, mm, yyyy] = match;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function Cadastro() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -73,9 +91,14 @@ export default function Cadastro() {
 
   const validate = () => {
     const e = {};
+
     if (!form.congregacao) e.congregacao = "Selecione a congregação";
     if (!form.nome.trim()) e.nome = "Informe o nome completo";
-    if (!form.nascimento) e.nascimento = "Informe a data de nascimento";
+
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(form.nascimento)) {
+      e.nascimento = "Informe a data no formato dd/mm/aaaa";
+    }
+
     if (!form.sexo) e.sexo = "Selecione o sexo";
     if (!validateCPF(unmask(form.cpf))) e.cpf = "CPF inválido";
     if (unmask(form.telefone).length < 10) e.telefone = "Telefone inválido";
@@ -86,6 +109,7 @@ export default function Cadastro() {
     if (!form.possuiCargo) e.possuiCargo = "Selecione uma opção";
     if (form.possuiCargo === "Sim" && !form.cargo) e.cargo = "Selecione o cargo";
     if (!form.lgpd) e.lgpd = "Aceite a Política de Privacidade";
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -104,7 +128,7 @@ export default function Cadastro() {
       const payload = {
         congregacaoId: form.congregacao,
         nome: form.nome.trim(),
-        nascimento: form.nascimento,
+        nascimento: parseDateToISO(form.nascimento),
         sexo: form.sexo,
         cpf: unmask(form.cpf),
         telefone: unmask(form.telefone),
@@ -200,10 +224,13 @@ export default function Cadastro() {
               />
               <Input
                 label="Nascimento"
-                type="date"
+                type="text"
                 value={form.nascimento}
-                onChange={(v) => set("nascimento", v)}
+                onChange={(v) => set("nascimento", maskDate(v))}
                 error={errors.nascimento}
+                placeholder="dd/mm/aaaa"
+                maxLength={10}
+                inputMode="numeric"
               />
               <SelectField
                 label="Sexo"
@@ -227,6 +254,7 @@ export default function Cadastro() {
                 error={errors.cpf}
                 placeholder="000.000.000-00"
                 maxLength={14}
+                inputMode="numeric"
               />
               <Input
                 label="Telefone"
@@ -235,6 +263,7 @@ export default function Cadastro() {
                 error={errors.telefone}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
+                inputMode="tel"
               />
             </div>
 
@@ -248,6 +277,7 @@ export default function Cadastro() {
                 error={errors.cep}
                 placeholder="00000-000"
                 maxLength={9}
+                inputMode="numeric"
               />
               <Input label="Cidade" value={form.cidade} readOnly />
               <Input label="UF" value={form.uf} readOnly />
@@ -267,6 +297,7 @@ export default function Cadastro() {
                 value={form.numero}
                 onChange={(v) => set("numero", v)}
                 error={errors.numero}
+                inputMode="numeric"
               />
               <Input
                 label="Complemento"

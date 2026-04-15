@@ -1,9 +1,9 @@
-import React from 'react';
+import React from "react";
 
 export default function Input({
   label,
   error,
-  className = '',
+  className = "",
   onChange,
   readOnly,
   ...props
@@ -15,12 +15,14 @@ export default function Input({
           {label}
         </label>
       )}
+
       <input
-        className={`input-field ${readOnly ? 'bg-surface-2 cursor-not-allowed' : ''} ${error ? 'border-destructive' : ''} ${className}`}
+        className={`input-field text-base ${readOnly ? "bg-surface-2 cursor-not-allowed" : ""} ${error ? "border-destructive" : ""} ${className}`}
         onChange={(e) => onChange && onChange(e.target.value)}
         readOnly={readOnly}
         {...props}
       />
+
       {error && (
         <span className="text-sm text-destructive mt-1 block">{error}</span>
       )}
