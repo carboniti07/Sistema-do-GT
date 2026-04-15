@@ -23,11 +23,6 @@ const defaultConfig = {
   appName: "UMADRUR",
   adminSubtitle: "Painel Administrativo",
 
-  // Acesso (local)
-  allowMockLogin: true,
-  mockEmail: "admin@umadrur.com",
-  mockPassword: "123456",
-
   // Congregações (nome exibido)
   enableCongregationCustomNames: true,
 };

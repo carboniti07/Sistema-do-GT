@@ -57,6 +57,30 @@ function parseDateToISO(value = "") {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function formatPersonName(value = "") {
+  const lowerWords = new Set(["da", "de", "do", "das", "dos", "e"]);
+
+  return String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word, index) => {
+      if (index > 0 && lowerWords.has(word)) {
+        return word;
+      }
+
+      return word
+        .split("-")
+        .map((part) =>
+          part ? part.charAt(0).toUpperCase() + part.slice(1) : part
+        )
+        .join("-");
+    })
+    .join(" ");
+}
+
 export default function Cadastro() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -127,7 +151,7 @@ export default function Cadastro() {
 
       const payload = {
         congregacaoId: form.congregacao,
-        nome: form.nome.trim(),
+        nome: formatPersonName(form.nome),
         nascimento: parseDateToISO(form.nascimento),
         sexo: form.sexo,
         cpf: unmask(form.cpf),
@@ -219,7 +243,7 @@ export default function Cadastro() {
               <Input
                 label="Nome completo"
                 value={form.nome}
-                onChange={(v) => set("nome", v)}
+                onChange={(v) => set("nome", formatPersonName(v))}
                 error={errors.nome}
               />
               <Input
