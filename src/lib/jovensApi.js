@@ -1,5 +1,13 @@
 import { api } from "./api";
-import { getToken } from "./adminApi";
+
+export function getToken() {
+  return localStorage.getItem("umadrur_token");
+}
+
+export async function listJovens() {
+  const token = getToken();
+  return api("/jovens", { token });
+}
 
 export async function createJovem(payload) {
   const token = getToken();
@@ -10,9 +18,13 @@ export async function createJovem(payload) {
   });
 }
 
-export async function listJovens() {
+export async function updateJovem(id, payload) {
   const token = getToken();
-  return api("/jovens", { token });
+  return api(`/jovens/${id}`, {
+    method: "PATCH",
+    token,
+    body: payload,
+  });
 }
 
 export async function deleteJovem(id) {

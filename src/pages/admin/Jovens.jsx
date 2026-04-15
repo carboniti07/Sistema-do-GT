@@ -4,9 +4,25 @@ import Card from "../../components/Card";
 import Table from "../../components/Table";
 import Button from "../../components/Button";
 import SelectField from "../../components/SelectField";
-import { listJovens } from "../../lib/jovensApi";
+import Input from "../../components/Input";
+import Modal from "../../components/Modal";
+import {
+  listJovens,
+  updateJovem,
+  deleteJovem,
+} from "../../lib/jovensApi";
 import { congregacoes, getCongregacaoNome } from "../../lib/congregacoes";
-import { Search, FileSpreadsheet, CalendarDays, Users, X, RefreshCcw } from "lucide-react";
+import {
+  Search,
+  FileSpreadsheet,
+  CalendarDays,
+  Users,
+  X,
+  RefreshCcw,
+  Eye,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { Perms } from "../../auth/permissions.js";
@@ -53,6 +69,20 @@ function formatPhone(value = "") {
   return value || "";
 }
 
+function formatDateBR(date) {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("pt-BR");
+}
+
+function toDateInputValue(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
 const simNaoOptions = (placeholder) => [
   { value: "", label: placeholder },
   { value: "Sim", label: "Sim" },
@@ -67,6 +97,7 @@ const cargoOptions = [
 
 export default function Jovens() {
   const { user } = useAuth();
+
   const [search, setSearch] = useState("");
   const [filtCong, setFiltCong] = useState("");
   const [filtBatAguas, setFiltBatAguas] = useState("");
@@ -74,6 +105,11 @@ export default function Jovens() {
   const [filtCargo, setFiltCargo] = useState("");
   const [jovens, setJovens] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [selectedJovem, setSelectedJovem] = useState(null);
+  const [editingJovem, setEditingJovem] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
 
   const canViewAll = hasPermission(user, Perms.VIEW_ALL);
   const isLimited = !canViewAll && hasPermission(user, Perms.VIEW_OWN_CONG);
@@ -173,6 +209,44 @@ export default function Jovens() {
       render: (v) => (v ? "Sim" : "Não"),
     },
     { key: "cargo", label: "Cargo", render: (v) => v || "-" },
+    {
+      key: "acoes",
+      label: "Ações",
+      render: (_, row) => (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setSelectedJovem(row)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-surface-2 transition-colors"
+            title="Ver detalhes"
+          >
+            <Eye size={17} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setEditingJovem({
+              ...row,
+              nascimento: toDateInputValue(row.nascimento),
+            })}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-surface-2 transition-colors"
+            title="Editar"
+          >
+            <Pencil size={17} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleDelete(row)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+            title="Excluir"
+            disabled={deletingId === row.id}
+          >
+            <Trash2 size={17} />
+          </button>
+        </div>
+      ),
+    },
   ];
 
   const clearFilters = () => {
@@ -184,6 +258,58 @@ export default function Jovens() {
   };
 
   const hasAnyFilter = !!(search || filtCong || filtBatAguas || filtBatES || filtCargo);
+
+  async function handleDelete(row) {
+    const ok = window.confirm(`Deseja excluir "${row.nome}"?`);
+    if (!ok) return;
+
+    try {
+      setDeletingId(row.id);
+      await deleteJovem(row.id);
+      toast.success("Jovem excluído com sucesso");
+      await loadData();
+      if (selectedJovem?.id === row.id) setSelectedJovem(null);
+    } catch (err) {
+      toast.error(err?.message || "Erro ao excluir jovem");
+    } finally {
+      setDeletingId("");
+    }
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    if (!editingJovem) return;
+
+    try {
+      setSavingEdit(true);
+
+      await updateJovem(editingJovem.id, {
+        nome: editingJovem.nome,
+        nascimento: editingJovem.nascimento,
+        sexo: editingJovem.sexo,
+        telefone: String(editingJovem.telefone || "").replace(/\D/g, ""),
+        cep: String(editingJovem.cep || "").replace(/\D/g, ""),
+        logradouro: editingJovem.logradouro || "",
+        numero: editingJovem.numero || "",
+        complemento: editingJovem.complemento || "",
+        bairro: editingJovem.bairro || "",
+        cidade: editingJovem.cidade || "",
+        uf: editingJovem.uf || "",
+        batismoAguas: !!editingJovem.batismoAguas,
+        batismoES: !!editingJovem.batismoES,
+        possuiCargo: !!editingJovem.possuiCargo,
+        cargo: editingJovem.possuiCargo ? editingJovem.cargo || "" : "",
+      });
+
+      toast.success("Jovem atualizado com sucesso");
+      setEditingJovem(null);
+      await loadData();
+    } catch (err) {
+      toast.error(err?.message || "Erro ao atualizar jovem");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   const handleExport = async () => {
     try {
@@ -499,6 +625,184 @@ export default function Jovens() {
 
         <Table columns={columns} data={filtered} />
       </Card>
+
+      <Modal
+        open={!!selectedJovem}
+        onClose={() => setSelectedJovem(null)}
+        title="Detalhes do Jovem"
+      >
+        {selectedJovem && (
+          <div className="space-y-3 text-sm text-foreground">
+            <div><strong>Nome:</strong> {selectedJovem.nome}</div>
+            <div><strong>Congregação:</strong> {getCongregacaoNome(selectedJovem.congregacaoId)}</div>
+            <div><strong>Nascimento:</strong> {formatDateBR(selectedJovem.nascimento)}</div>
+            <div><strong>Idade:</strong> {calcAge(selectedJovem.nascimento)} anos</div>
+            <div><strong>Sexo:</strong> {selectedJovem.sexo || "-"}</div>
+            <div><strong>CPF:</strong> {selectedJovem.cpf || "-"}</div>
+            <div><strong>Telefone:</strong> {formatPhone(selectedJovem.telefone)}</div>
+            <div><strong>CEP:</strong> {selectedJovem.cep || "-"}</div>
+            <div><strong>Logradouro:</strong> {selectedJovem.logradouro || "-"}</div>
+            <div><strong>Número:</strong> {selectedJovem.numero || "-"}</div>
+            <div><strong>Complemento:</strong> {selectedJovem.complemento || "-"}</div>
+            <div><strong>Bairro:</strong> {selectedJovem.bairro || "-"}</div>
+            <div><strong>Cidade:</strong> {selectedJovem.cidade || "-"}</div>
+            <div><strong>UF:</strong> {selectedJovem.uf || "-"}</div>
+            <div><strong>Batizado nas águas:</strong> {selectedJovem.batismoAguas ? "Sim" : "Não"}</div>
+            <div><strong>Batizado com Espírito Santo:</strong> {selectedJovem.batismoES ? "Sim" : "Não"}</div>
+            <div><strong>Cargo:</strong> {selectedJovem.cargo || "Não possui"}</div>
+            <div><strong>Cadastrado em:</strong> {formatDateBR(selectedJovem.createdAt)}</div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!editingJovem}
+        onClose={() => setEditingJovem(null)}
+        title="Editar Jovem"
+      >
+        {editingJovem && (
+          <form onSubmit={handleSaveEdit} className="space-y-3">
+            <Input
+              label="Nome"
+              value={editingJovem.nome || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, nome: v }))}
+            />
+
+            <Input
+              label="Nascimento"
+              type="date"
+              value={editingJovem.nascimento || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, nascimento: v }))}
+            />
+
+            <Input
+              label="Sexo"
+              value={editingJovem.sexo || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, sexo: v }))}
+            />
+
+            <Input
+              label="Telefone"
+              value={editingJovem.telefone || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, telefone: v }))}
+            />
+
+            <Input
+              label="CEP"
+              value={editingJovem.cep || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, cep: v }))}
+            />
+
+            <Input
+              label="Logradouro"
+              value={editingJovem.logradouro || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, logradouro: v }))}
+            />
+
+            <Input
+              label="Número"
+              value={editingJovem.numero || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, numero: v }))}
+            />
+
+            <Input
+              label="Complemento"
+              value={editingJovem.complemento || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, complemento: v }))}
+            />
+
+            <Input
+              label="Bairro"
+              value={editingJovem.bairro || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, bairro: v }))}
+            />
+
+            <Input
+              label="Cidade"
+              value={editingJovem.cidade || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, cidade: v }))}
+            />
+
+            <Input
+              label="UF"
+              value={editingJovem.uf || ""}
+              onChange={(v) => setEditingJovem((p) => ({ ...p, uf: v }))}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <SelectField
+                label="Batizado nas águas"
+                value={{
+                  value: editingJovem.batismoAguas ? "Sim" : "Nao",
+                  label: editingJovem.batismoAguas ? "Sim" : "Não",
+                }}
+                onChange={(opt) =>
+                  setEditingJovem((p) => ({
+                    ...p,
+                    batismoAguas: opt?.value === "Sim",
+                  }))
+                }
+                options={simNaoOptions("Batismo nas Águas").slice(1)}
+              />
+
+              <SelectField
+                label="Batizado com Espírito Santo"
+                value={{
+                  value: editingJovem.batismoES ? "Sim" : "Nao",
+                  label: editingJovem.batismoES ? "Sim" : "Não",
+                }}
+                onChange={(opt) =>
+                  setEditingJovem((p) => ({
+                    ...p,
+                    batismoES: opt?.value === "Sim",
+                  }))
+                }
+                options={simNaoOptions("Batismo ES").slice(1)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <SelectField
+                label="Possui cargo"
+                value={{
+                  value: editingJovem.possuiCargo ? "Sim" : "Nao",
+                  label: editingJovem.possuiCargo ? "Sim" : "Não",
+                }}
+                onChange={(opt) =>
+                  setEditingJovem((p) => ({
+                    ...p,
+                    possuiCargo: opt?.value === "Sim",
+                    cargo: opt?.value === "Sim" ? p.cargo : "",
+                  }))
+                }
+                options={simNaoOptions("Possui cargo").slice(1)}
+              />
+
+              <Input
+                label="Cargo"
+                value={editingJovem.cargo || ""}
+                onChange={(v) => setEditingJovem((p) => ({ ...p, cargo: v }))}
+                readOnly={!editingJovem.possuiCargo}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditingJovem(null)}
+                disabled={savingEdit}
+              >
+                Cancelar
+              </Button>
+
+              <Button type="submit" disabled={savingEdit}>
+                {savingEdit ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </AdminLayout>
   );
 }
