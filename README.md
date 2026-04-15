@@ -1,73 +1,139 @@
-# Welcome to your Lovable project
+# UMADRUR | Sistema Oficial
 
-## Project info
+Sistema oficial da UMADRUR para cadastro, gestão e acompanhamento de jovens por congregação, com controle de acesso por perfil, autenticação segura e integração com backend em Node.js e MongoDB.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## Visão geral
 
-There are several ways of editing your application.
+O sistema foi desenvolvido para centralizar o cadastro de jovens da UMADRUR, permitindo organização administrativa, acompanhamento por congregação e acesso segmentado conforme o perfil do usuário.
 
-**Use Lovable**
+A plataforma conta com área pública de cadastro e painel administrativo com autenticação, dashboard, relatórios, listagem de jovens e controle de usuários.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Funcionalidades principais
 
-**Use your preferred IDE**
+- Cadastro de jovens com validação de dados
+- Consulta automática de endereço por CEP
+- Controle de congregações
+- Dashboard com indicadores gerais
+- Relatórios administrativos
+- Controle de usuários e permissões
+- Acesso limitado por congregação
+- Autenticação com JWT
+- Integração com MongoDB
+- Backend separado para deploy independente
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Perfis de acesso
 
-Follow these steps:
+O sistema opera com perfis distintos de permissão:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **ADMIN**
+  - acesso total ao sistema
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **SECRETARIA_GERAL**
+  - gestão ampla com visão global
 
-# Step 3: Install the necessary dependencies.
-npm i
+- **SECRETARIA_LOCAL**
+  - atuação restrita à congregação vinculada
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+- **LIDER**
+  - visualização e gestão da própria congregação
 
-**Edit a file directly in GitHub**
+- **VISUALIZADOR**
+  - acesso de leitura, sem poder administrativo amplo
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Tecnologias utilizadas
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
+### Frontend
 - React
-- shadcn-ui
+- Vite
 - Tailwind CSS
+- Lucide React
+- TanStack Query
+- React Router DOM
+- Sonner
 
-## How can I deploy this project?
+### Backend
+- Node.js
+- Express
+- MongoDB
+- Mongoose
+- JWT
+- Zod
+- Bcrypt
+- CORS
+- Dotenv
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## Estrutura do projeto
 
-Yes, you can!
+### Frontend
+```bash
+src/
+components/
+pages/
+auth/
+lib/
+assets/
+public/
+index.html
+package.json
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Backend
+src/
+  middleware/
+  models/
+  routes/
+  seed/
+app.js
+server.js
+config.js
+db.js
+package.json
+Fluxo do sistema
+Área pública
+
+O usuário realiza o cadastro do jovem com dados pessoais, endereço, situação espiritual e informações eclesiásticas.
+
+Área administrativa
+
+Usuários autenticados acessam o painel conforme seu perfil, visualizando apenas os dados permitidos para sua congregação ou escopo global.
+
+Segurança e controle
+Autenticação por token JWT
+Proteção de rotas no frontend e backend
+Restrição de acesso por perfil
+Restrição de visualização por congregação
+Validação de dados no frontend e no backend
+Cadastro protegido contra CPF duplicado
+
+---
+
+Identidade do sistema
+Nome oficial: UMADRUR | Sistema Oficial
+Finalidade: gestão administrativa e cadastro de jovens
+Desenvolvimento: Carboni
+Status do projeto
+
+Projeto em evolução contínua, com base funcional já estruturada para uso administrativo real.
+
+Contato do desenvolvedor
+
+Carboni
+
+Instagram: https://www.instagram.com/carboni._/
+LinkedIn: https://www.linkedin.com/in/matheus-carboni-332a97304/
+WhatsApp: https://wa.me/5511994551544
+Licença
+
+Projeto desenvolvido para uso institucional da UMADRUR.
+Todos os direitos reservados conforme definição do responsável pelo sistema.
