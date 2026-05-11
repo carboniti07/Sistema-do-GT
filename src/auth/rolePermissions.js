@@ -9,13 +9,24 @@ export const rolePermissions = Object.freeze({
     Perms.APPROVE,
     Perms.DELETE,
     Perms.MANAGE_USERS,
+    Perms.CAMISAS_VIEW,
+    Perms.CAMISAS_MANAGE,
   ],
+
   [Roles.SECRETARIA]: [
     Perms.VIEW_ALL,
     Perms.CREATE,
     Perms.EDIT,
     Perms.APPROVE,
+    Perms.CAMISAS_VIEW,
+    Perms.CAMISAS_MANAGE,
   ],
-  [Roles.LIDER]: [Perms.VIEW_OWN_CONG],
-  [Roles.VISUALIZADOR]: [Perms.VIEW_OWN_CONG],
+
+  [Roles.LIDER]: [
+    Perms.VIEW_OWN_CONG,
+  ],
+
+  [Roles.VISUALIZADOR]: [
+    Perms.VIEW_OWN_CONG,
+  ],
 });

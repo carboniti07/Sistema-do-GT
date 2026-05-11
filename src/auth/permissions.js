@@ -6,4 +6,6 @@ export const Perms = Object.freeze({
   APPROVE: "APPROVE",
   DELETE: "DELETE",
   MANAGE_USERS: "MANAGE_USERS",
+  CAMISAS_VIEW: "CAMISAS_VIEW",
+  CAMISAS_MANAGE: "CAMISAS_MANAGE",
 });

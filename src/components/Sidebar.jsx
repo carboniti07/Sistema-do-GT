@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Shirt,
 } from "lucide-react";
 
 import { useAuth } from "../auth/AuthContext.jsx";
@@ -24,6 +25,7 @@ export default function Sidebar({ onClose }) {
 
   const canManageUsers = hasPermission(user, Perms.MANAGE_USERS);
   const canViewAll = hasPermission(user, Perms.VIEW_ALL);
+  const canViewCamisas = hasPermission(user, Perms.CAMISAS_VIEW);
 
   const menuItems = useMemo(() => {
     const items = [];
@@ -34,6 +36,14 @@ export default function Sidebar({ onClose }) {
         { path: "/admin/jovens", label: "Jovens", icon: Users },
         { path: "/admin/relatorios", label: "Relatórios", icon: BarChart3 }
       );
+    }
+
+    if (canViewCamisas) {
+      items.push({
+        path: "/admin/camisas",
+        label: "Camisas",
+        icon: Shirt,
+      });
     }
 
     if (canManageUsers) {
@@ -49,7 +59,7 @@ export default function Sidebar({ onClose }) {
     }
 
     return items;
-  }, [canManageUsers, canViewAdmin, canViewAll]);
+  }, [canManageUsers, canViewAdmin, canViewAll, canViewCamisas]);
 
   const handleLogout = () => {
     logout();
@@ -96,6 +106,7 @@ export default function Sidebar({ onClose }) {
                 }`}
                 aria-hidden="true"
               />
+
               <item.icon size={18} />
               <span className="leading-none">{item.label}</span>
             </button>

@@ -2,7 +2,7 @@ import React from "react";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
+import Camisas from "./pages/admin/Camisas.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
 import Login from "./pages/admin/Login.jsx";
 import Dashboard from "./pages/admin/Dashboard.jsx";
@@ -151,7 +151,18 @@ export default function App() {
               </ProtectedPermissionRoute>
             }
           />
-
+<Route
+  path="/admin/camisas"
+  element={
+    <ProtectedPermissionRoute
+      user={user}
+      loading={loading}
+      perm={Perms.CAMISAS_VIEW}
+    >
+      <Camisas />
+    </ProtectedPermissionRoute>
+  }
+/>
           <Route path="/admin/primeiro-acesso" element={<PrimeiroAcesso />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
