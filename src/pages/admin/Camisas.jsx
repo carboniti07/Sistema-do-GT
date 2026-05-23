@@ -13,6 +13,10 @@ import {
   removerComprovanteReserva,
   getCampanhaAtiva,
   salvarCampanhaAtiva,
+  listCampanhasCamisa,
+  criarCampanhaCamisa,
+  atualizarStatusCampanha,
+  excluirCampanhaCamisa,
 } from "../../lib/camisaApi";
 import {
   Shirt,
@@ -30,6 +34,19 @@ import {
   Users,
   FileSpreadsheet,
   Trash2,
+  Target,
+  Trophy,
+  Medal,
+  Plus,
+  Archive,
+  Power,
+  Crown,
+  Award,
+  BarChart3,
+  TrendingUp,
+  Maximize2,
+  Monitor,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -96,6 +113,43 @@ function statusBadgeClass(status) {
   return "bg-yellow-50 text-yellow-700 border-yellow-200";
 }
 
+function campanhaBadgeClass(status) {
+  if (status === "ativa") return "bg-green-50 text-green-700 border-green-200";
+  if (status === "encerrada") return "bg-yellow-50 text-yellow-700 border-yellow-200";
+  if (status === "arquivada") return "bg-slate-50 text-slate-700 border-slate-200";
+  if (status === "cancelada") return "bg-red-50 text-red-700 border-red-200";
+  return "bg-surface-2 text-muted-foreground border-border";
+}
+
+function percentClass(percent) {
+  const value = Number(percent || 0);
+
+  if (value >= 100) return "bg-green-500";
+  if (value >= 80) return "bg-emerald-500";
+  if (value >= 50) return "bg-yellow-500";
+  if (value >= 25) return "bg-orange-500";
+
+  return "bg-red-500";
+}
+
+function percentBadgeClass(percent) {
+  const value = Number(percent || 0);
+
+  if (value >= 100) return "bg-green-50 text-green-700 border-green-200";
+  if (value >= 80) return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (value >= 50) return "bg-yellow-50 text-yellow-700 border-yellow-200";
+  if (value >= 25) return "bg-orange-50 text-orange-700 border-orange-200";
+
+  return "bg-red-50 text-red-700 border-red-200";
+}
+
+function positionIcon(posicao) {
+  if (posicao === 1) return "🥇";
+  if (posicao === 2) return "🥈";
+  if (posicao === 3) return "🥉";
+  return `#${posicao}`;
+}
+
 function whatsappUrl(telefone, mensagem) {
   const phone = String(telefone || "").replace(/\D/g, "");
   return `https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`;
@@ -112,6 +166,8 @@ function mensagemReserva(reserva) {
 export default function Camisas() {
   const [reservas, setReservas] = useState([]);
   const [campanha, setCampanha] = useState(null);
+  const [resumoApi, setResumoApi] = useState(null);
+  const [campanhas, setCampanhas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -127,6 +183,8 @@ export default function Camisas() {
   const [campanhaModal, setCampanhaModal] = useState(false);
   const [acoesMobileReserva, setAcoesMobileReserva] = useState(null);
   const [comprovanteArquivo, setComprovanteArquivo] = useState(null);
+  const [telaoModal, setTelaoModal] = useState(false);
+  const [painelAoVivoModal, setPainelAoVivoModal] = useState(false);
 
   const [campanhaForm, setCampanhaForm] = useState({
     nomeCampanha: "",
@@ -141,12 +199,13 @@ export default function Camisas() {
     try {
       setLoading(true);
 
-      const [reservasData] = await Promise.all([
+      const [reservasData, resumoData] = await Promise.all([
         listCamisaReservas(),
         getCamisaResumo(),
       ]);
 
       setReservas(Array.isArray(reservasData?.reservas) ? reservasData.reservas : []);
+      setResumoApi(resumoData?.resumo || null);
 
       try {
         const campanhaData = await getCampanhaAtiva();
@@ -154,9 +213,18 @@ export default function Camisas() {
       } catch {
         setCampanha(null);
       }
+
+      try {
+        const campanhasData = await listCampanhasCamisa();
+        setCampanhas(Array.isArray(campanhasData?.campanhas) ? campanhasData.campanhas : []);
+      } catch {
+        setCampanhas([]);
+      }
     } catch (err) {
       toast.error(err?.message || "Erro ao carregar módulo de camisas");
       setReservas([]);
+      setResumoApi(null);
+      setCampanhas([]);
     } finally {
       setLoading(false);
     }
@@ -250,6 +318,7 @@ export default function Camisas() {
         if (r.statusPagamento === "confirmado") {
           acc.valorConfirmado += valor;
           acc.confirmados += 1;
+          acc.camisasConfirmadas += quantidade;
         }
 
         if (r.statusPagamento === "pendente" || r.statusPagamento === "comprovante enviado") {
@@ -266,6 +335,7 @@ export default function Camisas() {
       {
         totalReservas: 0,
         totalCamisas: 0,
+        camisasConfirmadas: 0,
         valorTotal: 0,
         valorConfirmado: 0,
         valorPendente: 0,
@@ -321,6 +391,44 @@ export default function Camisas() {
       .map(([congregacao, data]) => ({ congregacao, ...data }))
       .sort((a, b) => b.camisas - a.camisas);
   }, [filtered]);
+
+  const rankingCongregacoes = useMemo(() => {
+    return Array.isArray(resumoApi?.rankingCongregacoes)
+      ? resumoApi.rankingCongregacoes
+      : [];
+  }, [resumoApi]);
+
+  const topRanking = useMemo(() => {
+    return rankingCongregacoes.slice(0, 5);
+  }, [rankingCongregacoes]);
+
+  const metaResumo = useMemo(() => {
+    return {
+      totalJovensCampo: resumoApi?.totalJovensCampo || 0,
+      metaGeralCamisas: resumoApi?.metaGeralCamisas || 0,
+      camisasConfirmadas: resumoApi?.camisasConfirmadas || 0,
+      faltamParaMetaGeral: resumoApi?.faltamParaMetaGeral || 0,
+      percentualMetaGeral: resumoApi?.percentualMetaGeral || 0,
+      congregacaoLider: resumoApi?.congregacaoLider || null,
+      congregacoesAbaixo50: resumoApi?.congregacoesAbaixo50 || 0,
+    };
+  }, [resumoApi]);
+
+  const graficoStatus = useMemo(() => {
+    const data = [
+      { label: "Confirmados", value: resumoFiltrado.confirmados, className: "bg-green-500" },
+      { label: "Pendentes", value: resumoFiltrado.pendentes, className: "bg-yellow-500" },
+      { label: "Cancelados", value: filtered.filter((r) => r.statusPagamento === "cancelado").length, className: "bg-red-500" },
+      { label: "Comprovantes", value: resumoFiltrado.comprovantesEnviados, className: "bg-blue-500" },
+    ];
+
+    const max = Math.max(...data.map((d) => d.value), 1);
+
+    return data.map((d) => ({
+      ...d,
+      percent: Math.max(4, (d.value / max) * 100),
+    }));
+  }, [filtered, resumoFiltrado]);
 
   async function alterarStatus(reserva, statusPagamento) {
     try {
@@ -387,6 +495,50 @@ export default function Camisas() {
     }
   }
 
+  async function criarNovaCampanha(e) {
+    e.preventDefault();
+
+    try {
+      await criarCampanhaCamisa({
+        ...campanhaForm,
+        valorCamisa: Number(campanhaForm.valorCamisa || 0),
+        status: "ativa",
+      });
+
+      toast.success("Nova campanha criada com sucesso");
+      setCampanhaModal(false);
+      await loadData();
+    } catch (err) {
+      toast.error(err?.message || "Erro ao criar nova campanha");
+    }
+  }
+
+  async function mudarStatusCampanha(campanhaId, status) {
+    try {
+      await atualizarStatusCampanha(campanhaId, status);
+      toast.success("Status da campanha atualizado");
+      await loadData();
+    } catch (err) {
+      toast.error(err?.message || "Erro ao atualizar campanha");
+    }
+  }
+
+  async function removerCampanha(campanhaId) {
+    const confirmar = window.confirm(
+      "Deseja excluir esta campanha? Só é possível excluir campanhas sem reservas."
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await excluirCampanhaCamisa(campanhaId);
+      toast.success("Campanha excluída com sucesso");
+      await loadData();
+    } catch (err) {
+      toast.error(err?.message || "Erro ao excluir campanha");
+    }
+  }
+
   function abrirCampanhaModal() {
     setCampanhaForm({
       nomeCampanha: campanha?.nomeCampanha || "",
@@ -426,10 +578,12 @@ export default function Camisas() {
       wb.creator = "UMADRUR";
       wb.created = new Date();
 
-      const wsResumo = wb.addWorksheet("Resumo");
+      const wsResumo = wb.addWorksheet("Resumo Executivo");
       const wsReservas = wb.addWorksheet("Reservas");
-      const wsCongregacoes = wb.addWorksheet("Por Congregação");
-      const wsTamanhos = wb.addWorksheet("Por Tamanho");
+      const wsCongregacoes = wb.addWorksheet("Congregações");
+      const wsTamanhos = wb.addWorksheet("Tamanhos");
+      const wsRanking = wb.addWorksheet("Ranking Público");
+      const wsCampanhas = wb.addWorksheet("Campanhas");
 
       const COLORS = {
         titleBg: "FFFFF3E8",
@@ -438,16 +592,19 @@ export default function Camisas() {
         border: "FFE5E7EB",
         soft: "FFFFFAF5",
         text: "FF111827",
+        green: "FF16A34A",
+        red: "FFDC2626",
+        orange: "FFF97316",
       };
 
       function styleTitle(ws, title, range) {
         ws.mergeCells(range);
         const cell = ws.getCell(range.split(":")[0]);
         cell.value = title;
-        cell.font = { bold: true, size: 15, color: { argb: COLORS.text } };
+        cell.font = { bold: true, size: 16, color: { argb: COLORS.text } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLORS.titleBg } };
         cell.alignment = { horizontal: "left", vertical: "middle" };
-        ws.getRow(1).height = 28;
+        ws.getRow(1).height = 30;
       }
 
       function styleHeader(row) {
@@ -481,12 +638,17 @@ export default function Camisas() {
         });
       }
 
-      styleTitle(wsResumo, "UMADRUR | Resumo das Reservas de Camisas", "A1:D1");
+      styleTitle(wsResumo, "UMADRUR | Resumo Executivo da Campanha de Camisas", "A1:D1");
       wsResumo.addRow(["Gerado em", new Date().toLocaleString("pt-BR")]);
+      wsResumo.addRow(["Campanha", campanha?.nomeCampanha || "-"]);
+      wsResumo.addRow(["Tema", campanha?.tema || "-"]);
       wsResumo.addRow([]);
       styleHeader(wsResumo.addRow(["Indicador", "Valor", "Indicador", "Valor"]));
 
       [
+        ["Total de jovens", metaResumo.totalJovensCampo, "Meta geral", metaResumo.metaGeralCamisas],
+        ["Camisas confirmadas", metaResumo.camisasConfirmadas, "% da meta", `${metaResumo.percentualMetaGeral}%`],
+        ["Faltam para meta", metaResumo.faltamParaMetaGeral, "Congregações abaixo de 50%", metaResumo.congregacoesAbaixo50],
         ["Total de reservas", resumoFiltrado.totalReservas, "Camisas reservadas", resumoFiltrado.totalCamisas],
         ["Valor reservado", resumoFiltrado.valorTotal, "Valor confirmado", resumoFiltrado.valorConfirmado],
         ["Valor pendente", resumoFiltrado.valorPendente, "Pagamentos pendentes", resumoFiltrado.pendentes],
@@ -496,16 +658,11 @@ export default function Camisas() {
         styleBodyRow(row, idx);
       });
 
-      wsResumo.columns = [
-        { width: 26 },
-        { width: 18 },
-        { width: 26 },
-        { width: 18 },
-      ];
+      wsResumo.columns = [{ width: 28 }, { width: 20 }, { width: 32 }, { width: 20 }];
       wsResumo.getColumn(2).numFmt = '"R$" #,##0.00';
       wsResumo.getColumn(4).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsReservas, "UMADRUR | Relatório de Reservas de Camisas", "A1:L1");
+      styleTitle(wsReservas, "UMADRUR | Relatório de Reservas", "A1:L1");
       wsReservas.addRow([`Gerado em: ${new Date().toLocaleString("pt-BR")}`]);
       wsReservas.addRow([
         `Filtros: busca=${search || "-"} | congregação=${filtCongregacao || "Todas"} | tamanho=${filtTamanho || "Todos"} | status=${filtStatus || "Todos"} | forma=${filtForma || "Todas"} | período=${dataInicio || "-"} até ${dataFim || "-"}`,
@@ -514,21 +671,22 @@ export default function Camisas() {
       wsReservas.mergeCells("A3:L3");
       wsReservas.addRow([]);
 
-      const headerReservas = wsReservas.addRow([
-        "Nome",
-        "CPF",
-        "Telefone",
-        "Congregação",
-        "Tamanho",
-        "Quantidade",
-        "Forma de Pagamento",
-        "Valor Unitário",
-        "Valor Total",
-        "Status",
-        "Comprovantes",
-        "Data da Reserva",
-      ]);
-      styleHeader(headerReservas);
+      styleHeader(
+        wsReservas.addRow([
+          "Nome",
+          "CPF",
+          "Telefone",
+          "Congregação",
+          "Tamanho",
+          "Quantidade",
+          "Forma de Pagamento",
+          "Valor Unitário",
+          "Valor Total",
+          "Status",
+          "Comprovantes",
+          "Data da Reserva",
+        ])
+      );
 
       filtered.forEach((r, idx) => {
         const row = wsReservas.addRow([
@@ -555,7 +713,7 @@ export default function Camisas() {
         { width: 34 },
         { width: 12 },
         { width: 12 },
-        { width: 20 },
+        { width: 22 },
         { width: 16 },
         { width: 16 },
         { width: 22 },
@@ -611,20 +769,100 @@ export default function Camisas() {
         styleBodyRow(row, idx);
       });
 
-      wsTamanhos.columns = [
+      wsTamanhos.columns = [{ width: 18 }, { width: 16 }];
+
+      styleTitle(wsRanking, "UMADRUR | Ranking Público por Congregação", "A1:I1");
+      wsRanking.addRow([]);
+      styleHeader(
+        wsRanking.addRow([
+          "Posição",
+          "Congregação",
+          "Jovens",
+          "Meta",
+          "Reservadas",
+          "Confirmadas",
+          "Faltam",
+          "% Meta",
+          "Valor Confirmado",
+        ])
+      );
+
+      rankingCongregacoes.forEach((item, idx) => {
+        const row = wsRanking.addRow([
+          item.posicao,
+          item.congregacao,
+          item.totalJovens,
+          item.metaCamisas,
+          item.camisasReservadas,
+          item.camisasConfirmadas,
+          item.faltamParaMeta,
+          Number(item.percentualMeta || 0) / 100,
+          item.valorConfirmado,
+        ]);
+        styleBodyRow(row, idx);
+        row.getCell(8).numFmt = "0.00%";
+      });
+
+      wsRanking.columns = [
+        { width: 10 },
+        { width: 38 },
+        { width: 12 },
+        { width: 12 },
+        { width: 14 },
+        { width: 14 },
+        { width: 12 },
+        { width: 12 },
         { width: 18 },
+      ];
+      wsRanking.getColumn(9).numFmt = '"R$" #,##0.00';
+
+      styleTitle(wsCampanhas, "UMADRUR | Histórico de Campanhas", "A1:H1");
+      wsCampanhas.addRow([]);
+      styleHeader(
+        wsCampanhas.addRow([
+          "Nome",
+          "Tema",
+          "Valor",
+          "Chave Pix",
+          "Recebedor",
+          "Status",
+          "Criada em",
+          "Atualizada em",
+        ])
+      );
+
+      campanhas.forEach((c, idx) => {
+        const row = wsCampanhas.addRow([
+          c.nomeCampanha,
+          c.tema,
+          c.valorCamisa,
+          c.chavePix,
+          c.recebedor,
+          c.status,
+          formatDate(c.criadoEm),
+          formatDate(c.atualizadoEm),
+        ]);
+        styleBodyRow(row, idx);
+      });
+
+      wsCampanhas.columns = [
+        { width: 30 },
+        { width: 28 },
+        { width: 14 },
+        { width: 24 },
+        { width: 24 },
+        { width: 14 },
+        { width: 16 },
         { width: 16 },
       ];
+      wsCampanhas.getColumn(3).numFmt = '"R$" #,##0.00';
 
       const buffer = await wb.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
-      saveAs(
-        blob,
-        `UMADRUR_Reservas_Camisas_${new Date().toISOString().slice(0, 10)}.xlsx`
-      );
+      saveAs(blob, `UMADRUR_Camisas_Ranking_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err) {
       toast.error(err?.message || "Erro ao exportar Excel");
     }
@@ -632,544 +870,893 @@ export default function Camisas() {
 
   return (
     <AdminLayout title="Camisas">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4 md:mb-5">
-        <div>
-          <h2 className="text-xl md:text-2xl font-heading font-semibold text-foreground leading-tight">
-            Camisas UMADRUR
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Reservas, pagamentos, comprovantes e acompanhamento geral do campo
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={loadData} disabled={loading}>
-            <RefreshCcw size={17} />
-            Atualizar
-          </Button>
-
-          <Button variant="secondary" onClick={exportarExcel} disabled={loading || !filtered.length}>
-            <FileSpreadsheet size={17} />
-            Exportar Excel
-          </Button>
-
-          <Button onClick={abrirCampanhaModal}>
-            <Settings size={17} />
-            Campanha ativa
-          </Button>
-        </div>
-      </div>
-
-      {campanha && (
-        <Card className="mb-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+      <div className="space-y-5">
+        <div className="rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-white to-orange-50/70 p-5 shadow-sm">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
             <div>
-              <p className="text-xs text-muted-foreground">Campanha ativa</p>
-              <h3 className="text-base font-heading font-semibold text-foreground">
-                {campanha.nomeCampanha}
-              </h3>
-              {campanha.tema && (
-                <p className="text-sm text-muted-foreground">{campanha.tema}</p>
-              )}
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 mb-3">
+                <Sparkles size={14} />
+                Campanha de camisas
+              </div>
+
+              <h2 className="text-2xl md:text-3xl font-heading font-semibold text-foreground leading-tight">
+                Camisas UMADRUR
+              </h2>
+
+              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                Reservas, pagamentos, comprovantes, metas, ranking e painel de competição em tempo real.
+              </p>
             </div>
 
-            <div className="text-sm text-muted-foreground">
-              Valor da camisa:{" "}
-              <span className="text-primary font-semibold">
-                {formatMoney(campanha.valorCamisa)}
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={loadData} disabled={loading}>
+                <RefreshCcw size={17} />
+                Atualizar
+              </Button>
+
+              <Button variant="secondary" onClick={exportarExcel} disabled={loading || !filtered.length}>
+                <FileSpreadsheet size={17} />
+                Exportação avançada
+              </Button>
+
+              <Button variant="secondary" onClick={() => setPainelAoVivoModal(true)}>
+                <Monitor size={17} />
+                Painel ao vivo
+              </Button>
+
+              <Button variant="secondary" onClick={() => setTelaoModal(true)}>
+                <Maximize2 size={17} />
+                Telão
+              </Button>
+
+              <Button onClick={abrirCampanhaModal}>
+                <Settings size={17} />
+                Campanhas
+              </Button>
             </div>
           </div>
-        </Card>
-      )}
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 mb-4">
-        <ResumoCard icon={Shirt} label="Reservas" value={loading ? "..." : resumoFiltrado.totalReservas} />
-        <ResumoCard icon={Users} label="Camisas reservadas" value={loading ? "..." : resumoFiltrado.totalCamisas} />
-        <ResumoCard icon={DollarSign} label="Valor reservado" value={loading ? "..." : formatMoney(resumoFiltrado.valorTotal)} />
-        <ResumoCard icon={CheckCircle} label="Valor confirmado" value={loading ? "..." : formatMoney(resumoFiltrado.valorConfirmado)} />
-        <ResumoCard icon={Clock} label="Valor pendente" value={loading ? "..." : formatMoney(resumoFiltrado.valorPendente)} />
-        <ResumoCard icon={Clock} label="Pagamentos pendentes" value={loading ? "..." : resumoFiltrado.pendentes} />
-        <ResumoCard icon={CheckCircle} label="Pagamentos confirmados" value={loading ? "..." : resumoFiltrado.confirmados} />
-        <ResumoCard icon={FileText} label="Comprovantes anexados" value={loading ? "..." : resumoFiltrado.comprovantes} />
-      </div>
+        {campanha && (
+          <Card>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Campanha ativa
+                </p>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
-        <Card>
-          <h3 className="font-heading font-semibold text-foreground mb-3">
-            Resumo por tamanho
-          </h3>
+                <h3 className="text-lg font-heading font-semibold text-foreground mt-1">
+                  {campanha.nomeCampanha}
+                </h3>
 
-          <div className="space-y-3">
-            {porTamanho.length ? (
-              porTamanho.map(([tamanho, quantidade]) => (
-                <div key={tamanho}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>{tamanho}</span>
-                    <span className="font-semibold">{quantidade}</span>
+                {campanha.tema && (
+                  <p className="text-sm text-muted-foreground mt-1">{campanha.tema}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 text-sm">
+                <span className="rounded-2xl border border-border bg-white px-3 py-2 text-muted-foreground">
+                  Valor:{" "}
+                  <strong className="text-primary">{formatMoney(campanha.valorCamisa)}</strong>
+                </span>
+
+                <span className={`inline-flex justify-center rounded-2xl border px-3 py-2 text-xs font-semibold ${campanhaBadgeClass(campanha.status)}`}>
+                  {campanha.status}
+                </span>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+          <ResumoCardPremium icon={Users} label="Jovens cadastrados" value={loading ? "..." : metaResumo.totalJovensCampo} />
+          <ResumoCardPremium icon={Target} label="Meta geral" value={loading ? "..." : metaResumo.metaGeralCamisas} />
+          <ResumoCardPremium icon={CheckCircle} label="Confirmadas para meta" value={loading ? "..." : metaResumo.camisasConfirmadas} />
+          <ResumoCardPremium icon={Trophy} label="% da meta" value={loading ? "..." : `${metaResumo.percentualMetaGeral}%`} highlight />
+          <ResumoCardPremium icon={Clock} label="Faltam para meta" value={loading ? "..." : metaResumo.faltamParaMetaGeral} />
+          <ResumoCardPremium icon={Crown} label="Congregação líder" value={loading ? "..." : metaResumo.congregacaoLider?.codigo || "-"} highlight />
+          <ResumoCardPremium icon={XCircle} label="Abaixo de 50%" value={loading ? "..." : metaResumo.congregacoesAbaixo50} />
+          <ResumoCardPremium icon={Shirt} label="Reservas totais" value={loading ? "..." : resumoFiltrado.totalReservas} />
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <Card className="xl:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-heading font-semibold text-foreground">
+                  Progresso geral da meta
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Confirmadas em relação à meta total do campo
+                </p>
+              </div>
+
+              <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-sm font-bold ${percentBadgeClass(metaResumo.percentualMetaGeral)}`}>
+                {metaResumo.percentualMetaGeral}%
+              </span>
+            </div>
+
+            <ProgressBar percent={metaResumo.percentualMetaGeral} size="lg" />
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+              <MiniMetric label="Meta" value={metaResumo.metaGeralCamisas} />
+              <MiniMetric label="Confirmadas" value={metaResumo.camisasConfirmadas} />
+              <MiniMetric label="Faltam" value={metaResumo.faltamParaMetaGeral} />
+              <MiniMetric label="Reservadas" value={resumoFiltrado.totalCamisas} />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-heading font-semibold text-foreground">
+                  Status financeiro
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Distribuição atual
+                </p>
+              </div>
+
+              <BarChart3 size={20} className="text-primary" />
+            </div>
+
+            <div className="space-y-4">
+              {graficoStatus.map((item) => (
+                <div key={item.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{item.label}</span>
+                    <span className="font-semibold">{item.value}</span>
                   </div>
+
                   <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
                     <div
-                      className="h-2 rounded-full bg-primary"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          (quantidade / Math.max(1, resumoFiltrado.totalCamisas)) * 100
-                        )}%`,
-                      }}
+                      className={`h-2 rounded-full ${item.className}`}
+                      style={{ width: `${item.percent}%` }}
                     />
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma reserva encontrada</p>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="font-heading font-semibold text-foreground mb-3">
-            Resumo por congregação
-          </h3>
-
-          <div className="max-h-[280px] overflow-y-auto space-y-3 pr-2">
-            {porCongregacao.length ? (
-              porCongregacao.map((item) => (
-                <div key={item.congregacao} className="rounded-xl border border-border p-3">
-                  <div className="font-medium text-sm text-foreground mb-1">
-                    {item.congregacao}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs text-muted-foreground">
-                    <span>Reservas: {item.reservas}</span>
-                    <span>Camisas: {item.camisas}</span>
-                    <span>Total: {formatMoney(item.valorTotal)}</span>
-                    <span>Confirmado: {formatMoney(item.valorConfirmado)}</span>
-                    <span>Pendente: {formatMoney(item.valorPendente)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma reserva encontrada</p>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-3 mb-5">
-          <Input label="Buscar" value={search} onChange={setSearch} placeholder="Nome, CPF ou telefone" />
-
-          <SelectField
-            label="Congregação"
-            value={congregacoesOptions.find((o) => o.value === filtCongregacao) || congregacoesOptions[0]}
-            options={congregacoesOptions}
-            onChange={(opt) => setFiltCongregacao(opt?.value || "")}
-          />
-
-          <SelectField
-            label="Tamanho"
-            value={tamanhoOptions.find((o) => o.value === filtTamanho) || tamanhoOptions[0]}
-            options={tamanhoOptions}
-            onChange={(opt) => setFiltTamanho(opt?.value || "")}
-          />
-
-          <SelectField
-            label="Status"
-            value={statusOptions.find((o) => o.value === filtStatus) || statusOptions[0]}
-            options={statusOptions}
-            onChange={(opt) => setFiltStatus(opt?.value || "")}
-          />
-
-          <SelectField
-            label="Pagamento"
-            value={formaPagamentoOptions.find((o) => o.value === filtForma) || formaPagamentoOptions[0]}
-            options={formaPagamentoOptions}
-            onChange={(opt) => setFiltForma(opt?.value || "")}
-          />
-
-          <Input label="Data inicial" type="date" value={dataInicio} onChange={setDataInicio} />
-          <Input label="Data final" type="date" value={dataFim} onChange={setDataFim} />
+              ))}
+            </div>
+          </Card>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-3">
-          <p className="text-sm text-muted-foreground">
-            Exibindo {filtered.length} de {reservas.length} reservas
-          </p>
-
-          <Button variant="secondary" onClick={limparFiltros}>
-            <XCircle size={17} />
-            Limpar filtros
-          </Button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+          <ResumoCardPremium icon={Shirt} label="Camisas reservadas" value={loading ? "..." : resumoFiltrado.totalCamisas} />
+          <ResumoCardPremium icon={DollarSign} label="Valor reservado" value={loading ? "..." : formatMoney(resumoFiltrado.valorTotal)} />
+          <ResumoCardPremium icon={CheckCircle} label="Valor confirmado" value={loading ? "..." : formatMoney(resumoFiltrado.valorConfirmado)} />
+          <ResumoCardPremium icon={Clock} label="Valor pendente" value={loading ? "..." : formatMoney(resumoFiltrado.valorPendente)} />
+          <ResumoCardPremium icon={Clock} label="Pagamentos pendentes" value={loading ? "..." : resumoFiltrado.pendentes} />
+          <ResumoCardPremium icon={CheckCircle} label="Pagamentos confirmados" value={loading ? "..." : resumoFiltrado.confirmados} />
+          <ResumoCardPremium icon={FileText} label="Comprovantes anexados" value={loading ? "..." : resumoFiltrado.comprovantes} />
+          <ResumoCardPremium icon={TrendingUp} label="Comprovantes enviados" value={loading ? "..." : resumoFiltrado.comprovantesEnviados} />
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-border">
-          <table className="w-full table-auto">
-            <thead className="bg-surface-2/60">
-              <tr className="border-b border-border">
-                {[
-                  "Nome",
-                  "CPF",
-                  "Telefone",
-                  "Congregação",
-                  "Tamanho",
-                  "Qtd.",
-                  "Pagamento",
-                  "Valor",
-                  "Status",
-                  "Comprov.",
-                  "Data",
-                  "Ações",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2.5 px-4 whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card>
+            <h3 className="font-heading font-semibold text-foreground mb-3">
+              Resumo por tamanho
+            </h3>
 
-            <tbody>
-              {filtered.map((r) => {
-                const confirmado = r.statusPagamento === "confirmado";
-                const cancelado = r.statusPagamento === "cancelado";
-                const podeAnexar = !cancelado && (r.comprovantes || []).length < 3;
-
-                return (
-                  <tr key={r.id} className="border-b border-border/60 hover:bg-surface-2">
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap font-medium">{r.nome}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatCPF(r.cpf)}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatPhone(r.telefone)}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.congregacao}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.tamanho}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.quantidade}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.formaPagamento}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap font-semibold">{formatMoney(r.valorTotal)}</td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">
-                      <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${statusBadgeClass(r.statusPagamento)}`}>
-                        {r.statusPagamento}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">
-                      {(r.comprovantes || []).length}/3
-                    </td>
-                    <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatDate(r.criadoEm)}</td>
-                    <td className="py-2.5 px-4">
-                      <div className="hidden md:flex items-center gap-1">
-                        <IconButton title="Ver detalhes" onClick={() => setSelectedReserva(r)}>
-                          <Eye size={16} />
-                        </IconButton>
-
-                        {!confirmado && !cancelado && (
-                          <IconButton title="Confirmar pagamento" onClick={() => alterarStatus(r, "confirmado")}>
-                            <CheckCircle size={16} />
-                          </IconButton>
-                        )}
-
-                        {podeAnexar && (
-                          <IconButton title="Anexar comprovante" onClick={() => setComprovanteReserva(r)}>
-                            <Upload size={16} />
-                          </IconButton>
-                        )}
-
-                        {r.statusPagamento !== "pendente" && !confirmado && !cancelado && (
-                          <IconButton title="Marcar pendente" onClick={() => alterarStatus(r, "pendente")}>
-                            <Clock size={16} />
-                          </IconButton>
-                        )}
-
-                        {!confirmado && !cancelado && (
-                          <IconButton title="Cancelar reserva" danger onClick={() => alterarStatus(r, "cancelado")}>
-                            <XCircle size={16} />
-                          </IconButton>
-                        )}
-
-                        <a
-                          href={whatsappUrl(r.telefone, mensagemReserva(r))}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2 transition-colors"
-                          title="Abrir WhatsApp"
-                        >
-                          <MessageCircle size={16} />
-                        </a>
-
-                        <IconButton title="Copiar mensagem" onClick={() => copiarMensagem(r)}>
-                          <Copy size={16} />
-                        </IconButton>
-                      </div>
-
-                      <div className="md:hidden">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => setAcoesMobileReserva(r)}
-                        >
-                          Ações
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {!filtered.length && (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              Nenhuma reserva encontrada
-            </p>
-          )}
-        </div>
-      </Card>
-
-      <Modal open={!!selectedReserva} onClose={() => setSelectedReserva(null)} title="Detalhes da reserva">
-        {selectedReserva && (
-          <div className="space-y-3 text-sm">
-            <Detail label="Nome" value={selectedReserva.nome} />
-            <Detail label="CPF" value={formatCPF(selectedReserva.cpf)} />
-            <Detail label="Telefone" value={formatPhone(selectedReserva.telefone)} />
-            <Detail label="Congregação" value={selectedReserva.congregacao} />
-            <Detail label="Tamanho" value={selectedReserva.tamanho} />
-            <Detail label="Quantidade" value={selectedReserva.quantidade} />
-            <Detail label="Valor unitário" value={formatMoney(selectedReserva.valorUnitario)} />
-            <Detail label="Valor total" value={formatMoney(selectedReserva.valorTotal)} />
-            <Detail label="Forma de pagamento" value={selectedReserva.formaPagamento} />
-            <Detail label="Status" value={selectedReserva.statusPagamento} />
-            <Detail label="Data da reserva" value={formatDate(selectedReserva.criadoEm)} />
-
-            <div className="pt-4 border-t border-border">
-              <div className="flex items-center justify-between mb-3">
-                <p className="font-semibold text-foreground">Comprovantes</p>
-
-                {selectedReserva.statusPagamento !== "cancelado" &&
-                  (selectedReserva.comprovantes || []).length < 3 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setComprovanteReserva(selectedReserva);
-                        setSelectedReserva(null);
-                      }}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Anexar novo
-                    </button>
-                  )}
-              </div>
-
-              {(selectedReserva.comprovantes || []).length ? (
-                <div className="space-y-2">
-                  {selectedReserva.comprovantes.map((c, idx) => (
-                    <div
-                      key={c._id || idx}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2"
-                    >
-                      <a
-                        href={c.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 flex-1 text-sm text-primary hover:underline truncate"
-                      >
-                        {c.nomeArquivo || `Comprovante ${idx + 1}`}
-                      </a>
-
-                      <span className="hidden sm:inline text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDate(c.enviadoEm)}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => removerComprovante(selectedReserva.id, c._id)}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 size={13} />
-                        Remover
-                      </button>
+            <div className="space-y-4">
+              {porTamanho.length ? (
+                porTamanho.map(([tamanho, quantidade]) => (
+                  <div key={tamanho}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium">{tamanho}</span>
+                      <span className="font-semibold">{quantidade}</span>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
+                      <div
+                        className="h-2.5 rounded-full bg-primary"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (quantidade / Math.max(1, resumoFiltrado.totalCamisas)) * 100
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
               ) : (
-                <div className="rounded-xl border border-dashed border-border p-4 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum comprovante anexado.
-                  </p>
-                </div>
+                <p className="text-sm text-muted-foreground">Nenhuma reserva encontrada</p>
               )}
             </div>
-          </div>
-        )}
-      </Modal>
+          </Card>
 
-      <Modal
-        open={!!comprovanteReserva}
-        onClose={() => {
-          setComprovanteReserva(null);
-          setComprovanteArquivo(null);
-        }}
-        title="Anexar comprovante"
-      >
-        <form onSubmit={salvarComprovante} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Comprovante
-            </label>
+          <Card>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 className="font-heading font-semibold text-foreground">
+                  Ranking por congregação
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Competição por percentual da meta atingida
+                </p>
+              </div>
 
-            <input
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-              onChange={(e) => setComprovanteArquivo(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2 file:text-white hover:file:bg-primary/90"
+              <Trophy size={20} className="text-primary" />
+            </div>
+
+            <div className="max-h-[420px] overflow-y-auto space-y-3 pr-2">
+              {rankingCongregacoes.length ? (
+                rankingCongregacoes.map((item) => (
+                  <RankingCard key={item.congregacao} item={item} />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma informação de ranking encontrada</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-3 mb-5">
+            <Input label="Buscar" value={search} onChange={setSearch} placeholder="Nome, CPF ou telefone" />
+
+            <SelectField
+              label="Congregação"
+              value={congregacoesOptions.find((o) => o.value === filtCongregacao) || congregacoesOptions[0]}
+              options={congregacoesOptions}
+              onChange={(opt) => setFiltCongregacao(opt?.value || "")}
             />
 
-            <p className="text-xs text-muted-foreground mt-2">
-              Formatos aceitos: JPG, PNG, WEBP ou PDF. Limite: 5MB.
+            <SelectField
+              label="Tamanho"
+              value={tamanhoOptions.find((o) => o.value === filtTamanho) || tamanhoOptions[0]}
+              options={tamanhoOptions}
+              onChange={(opt) => setFiltTamanho(opt?.value || "")}
+            />
+
+            <SelectField
+              label="Status"
+              value={statusOptions.find((o) => o.value === filtStatus) || statusOptions[0]}
+              options={statusOptions}
+              onChange={(opt) => setFiltStatus(opt?.value || "")}
+            />
+
+            <SelectField
+              label="Pagamento"
+              value={formaPagamentoOptions.find((o) => o.value === filtForma) || formaPagamentoOptions[0]}
+              options={formaPagamentoOptions}
+              onChange={(opt) => setFiltForma(opt?.value || "")}
+            />
+
+            <Input label="Data inicial" type="date" value={dataInicio} onChange={setDataInicio} />
+            <Input label="Data final" type="date" value={dataFim} onChange={setDataFim} />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-3">
+            <p className="text-sm text-muted-foreground">
+              Exibindo {filtered.length} de {reservas.length} reservas
             </p>
 
-            {comprovanteArquivo && (
-              <p className="text-xs text-foreground mt-2">
-                Arquivo selecionado: <strong>{comprovanteArquivo.name}</strong>
+            <Button variant="secondary" onClick={limparFiltros}>
+              <XCircle size={17} />
+              Limpar filtros
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full table-auto">
+              <thead className="bg-surface-2/60">
+                <tr className="border-b border-border">
+                  {[
+                    "Nome",
+                    "CPF",
+                    "Telefone",
+                    "Congregação",
+                    "Tamanho",
+                    "Qtd.",
+                    "Pagamento",
+                    "Valor",
+                    "Status",
+                    "Comprov.",
+                    "Data",
+                    "Ações",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider py-2.5 px-4 whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {filtered.map((r) => {
+                  const confirmado = r.statusPagamento === "confirmado";
+                  const cancelado = r.statusPagamento === "cancelado";
+                  const podeAnexar = !cancelado && (r.comprovantes || []).length < 3;
+
+                  return (
+                    <tr key={r.id} className="border-b border-border/60 hover:bg-orange-50/40 transition-colors">
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 text-primary grid place-items-center text-xs font-bold">
+                            {String(r.nome || "?").slice(0, 1)}
+                          </div>
+                          <span>{r.nome}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatCPF(r.cpf)}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatPhone(r.telefone)}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.congregacao}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.tamanho}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.quantidade}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.formaPagamento}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap font-semibold">{formatMoney(r.valorTotal)}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-medium ${statusBadgeClass(r.statusPagamento)}`}>
+                          {r.statusPagamento}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">
+                        {(r.comprovantes || []).length}/3
+                      </td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatDate(r.criadoEm)}</td>
+                      <td className="py-2.5 px-4">
+                        <div className="hidden md:flex items-center gap-1">
+                          <IconButton title="Ver detalhes" onClick={() => setSelectedReserva(r)}>
+                            <Eye size={16} />
+                          </IconButton>
+
+                          {!confirmado && !cancelado && (
+                            <IconButton title="Confirmar pagamento" onClick={() => alterarStatus(r, "confirmado")}>
+                              <CheckCircle size={16} />
+                            </IconButton>
+                          )}
+
+                          {podeAnexar && (
+                            <IconButton title="Anexar comprovante" onClick={() => setComprovanteReserva(r)}>
+                              <Upload size={16} />
+                            </IconButton>
+                          )}
+
+                          {r.statusPagamento !== "pendente" && !confirmado && !cancelado && (
+                            <IconButton title="Marcar pendente" onClick={() => alterarStatus(r, "pendente")}>
+                              <Clock size={16} />
+                            </IconButton>
+                          )}
+
+                          {!confirmado && !cancelado && (
+                            <IconButton title="Cancelar reserva" danger onClick={() => alterarStatus(r, "cancelado")}>
+                              <XCircle size={16} />
+                            </IconButton>
+                          )}
+
+                          <a
+                            href={whatsappUrl(r.telefone, mensagemReserva(r))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2 transition-colors"
+                            title="Abrir WhatsApp"
+                          >
+                            <MessageCircle size={16} />
+                          </a>
+
+                          <IconButton title="Copiar mensagem" onClick={() => copiarMensagem(r)}>
+                            <Copy size={16} />
+                          </IconButton>
+                        </div>
+
+                        <div className="md:hidden">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setAcoesMobileReserva(r)}
+                          >
+                            Ações
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {!filtered.length && (
+              <p className="text-center text-sm text-muted-foreground py-8">
+                Nenhuma reserva encontrada
               </p>
             )}
           </div>
+        </Card>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setComprovanteReserva(null);
-                setComprovanteArquivo(null);
-              }}
-            >
-              Cancelar
-            </Button>
+        <Modal open={!!selectedReserva} onClose={() => setSelectedReserva(null)} title="Detalhes da reserva">
+          {selectedReserva && (
+            <div className="space-y-3 text-sm">
+              <Detail label="Nome" value={selectedReserva.nome} />
+              <Detail label="CPF" value={formatCPF(selectedReserva.cpf)} />
+              <Detail label="Telefone" value={formatPhone(selectedReserva.telefone)} />
+              <Detail label="Congregação" value={selectedReserva.congregacao} />
+              <Detail label="Tamanho" value={selectedReserva.tamanho} />
+              <Detail label="Quantidade" value={selectedReserva.quantidade} />
+              <Detail label="Valor unitário" value={formatMoney(selectedReserva.valorUnitario)} />
+              <Detail label="Valor total" value={formatMoney(selectedReserva.valorTotal)} />
+              <Detail label="Forma de pagamento" value={selectedReserva.formaPagamento} />
+              <Detail label="Status" value={selectedReserva.statusPagamento} />
+              <Detail label="Data da reserva" value={formatDate(selectedReserva.criadoEm)} />
 
-            <Button type="submit">
-              Salvar comprovante
-            </Button>
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-semibold text-foreground">Comprovantes</p>
+
+                  {selectedReserva.statusPagamento !== "cancelado" &&
+                    (selectedReserva.comprovantes || []).length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setComprovanteReserva(selectedReserva);
+                          setSelectedReserva(null);
+                        }}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Anexar novo
+                      </button>
+                    )}
+                </div>
+
+                {(selectedReserva.comprovantes || []).length ? (
+                  <div className="space-y-2">
+                    {selectedReserva.comprovantes.map((c, idx) => (
+                      <div
+                        key={c._id || idx}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2"
+                      >
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 flex-1 text-sm text-primary hover:underline truncate"
+                        >
+                          {c.nomeArquivo || `Comprovante ${idx + 1}`}
+                        </a>
+
+                        <span className="hidden sm:inline text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDate(c.enviadoEm)}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => removerComprovante(selectedReserva.id, c._id)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={13} />
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum comprovante anexado.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        <Modal
+          open={!!comprovanteReserva}
+          onClose={() => {
+            setComprovanteReserva(null);
+            setComprovanteArquivo(null);
+          }}
+          title="Anexar comprovante"
+        >
+          <form onSubmit={salvarComprovante} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Comprovante
+              </label>
+
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                onChange={(e) => setComprovanteArquivo(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary file:px-4 file:py-2 file:text-white hover:file:bg-primary/90"
+              />
+
+              <p className="text-xs text-muted-foreground mt-2">
+                Formatos aceitos: JPG, PNG, WEBP ou PDF. Limite: 5MB.
+              </p>
+
+              {comprovanteArquivo && (
+                <p className="text-xs text-foreground mt-2">
+                  Arquivo selecionado: <strong>{comprovanteArquivo.name}</strong>
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setComprovanteReserva(null);
+                  setComprovanteArquivo(null);
+                }}
+              >
+                Cancelar
+              </Button>
+
+              <Button type="submit">
+                Salvar comprovante
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal open={campanhaModal} onClose={() => setCampanhaModal(false)} title="Gestão de campanhas">
+          <div className="space-y-5">
+            <form onSubmit={salvarCampanha} className="space-y-3">
+              <div className="rounded-xl border border-border bg-surface-2/40 p-3">
+                <p className="text-sm font-semibold text-foreground">
+                  Editar campanha ativa
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Alterar estes dados edita a campanha atual. Não reinicia as reservas.
+                  Para começar outra edição, use “Criar nova campanha”.
+                </p>
+              </div>
+
+              <Input label="Nome da campanha" value={campanhaForm.nomeCampanha} onChange={(v) => setCampanhaForm((p) => ({ ...p, nomeCampanha: v }))} />
+              <Input label="Tema" value={campanhaForm.tema} onChange={(v) => setCampanhaForm((p) => ({ ...p, tema: v }))} />
+              <Input label="Valor da camisa" type="number" step="0.01" value={campanhaForm.valorCamisa} onChange={(v) => setCampanhaForm((p) => ({ ...p, valorCamisa: v }))} />
+              <Input label="Chave Pix" value={campanhaForm.chavePix} onChange={(v) => setCampanhaForm((p) => ({ ...p, chavePix: v }))} />
+              <Input label="Recebedor" value={campanhaForm.recebedor} onChange={(v) => setCampanhaForm((p) => ({ ...p, recebedor: v }))} />
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={() => setCampanhaModal(false)}>
+                  Cancelar
+                </Button>
+
+                <Button type="submit">
+                  Salvar campanha ativa
+                </Button>
+
+                <Button type="button" variant="secondary" onClick={criarNovaCampanha}>
+                  <Plus size={16} />
+                  Criar nova campanha
+                </Button>
+              </div>
+            </form>
+
+            <div className="border-t border-border pt-4">
+              <h4 className="font-heading font-semibold text-foreground mb-3">
+                Campanhas cadastradas
+              </h4>
+
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                {campanhas.length ? (
+                  campanhas.map((c) => (
+                    <div key={c.id} className="rounded-xl border border-border p-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {c.nomeCampanha}
+                          </p>
+
+                          {c.tema && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {c.tema}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className={`rounded-full border px-2 py-1 text-xs font-medium ${campanhaBadgeClass(c.status)}`}>
+                              {c.status}
+                            </span>
+
+                            <span className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground">
+                              {formatMoney(c.valorCamisa)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {c.status !== "ativa" && (
+                            <button
+                              type="button"
+                              onClick={() => mudarStatusCampanha(c.id, "ativa")}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-green-700 hover:bg-green-50"
+                            >
+                              <Power size={13} />
+                              Ativar
+                            </button>
+                          )}
+
+                          {c.status === "ativa" && (
+                            <button
+                              type="button"
+                              onClick={() => mudarStatusCampanha(c.id, "encerrada")}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50"
+                            >
+                              <Clock size={13} />
+                              Encerrar
+                            </button>
+                          )}
+
+                          {c.status !== "arquivada" && (
+                            <button
+                              type="button"
+                              onClick={() => mudarStatusCampanha(c.id, "arquivada")}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                              <Archive size={13} />
+                              Arquivar
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => removerCampanha(c.id)}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 size={13} />
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma campanha encontrada.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
-        </form>
-      </Modal>
+        </Modal>
 
-      <Modal open={campanhaModal} onClose={() => setCampanhaModal(false)} title="Campanha ativa">
-        <form onSubmit={salvarCampanha} className="space-y-3">
-          <Input label="Nome da campanha" value={campanhaForm.nomeCampanha} onChange={(v) => setCampanhaForm((p) => ({ ...p, nomeCampanha: v }))} />
-          <Input label="Tema" value={campanhaForm.tema} onChange={(v) => setCampanhaForm((p) => ({ ...p, tema: v }))} />
-          <Input label="Valor da camisa" type="number" step="0.01" value={campanhaForm.valorCamisa} onChange={(v) => setCampanhaForm((p) => ({ ...p, valorCamisa: v }))} />
-          <Input label="Chave Pix" value={campanhaForm.chavePix} onChange={(v) => setCampanhaForm((p) => ({ ...p, chavePix: v }))} />
-          <Input label="Recebedor" value={campanhaForm.recebedor} onChange={(v) => setCampanhaForm((p) => ({ ...p, recebedor: v }))} />
+        <Modal
+          open={!!acoesMobileReserva}
+          onClose={() => setAcoesMobileReserva(null)}
+          title="Ações da reserva"
+        >
+          {acoesMobileReserva && (
+            <div className="space-y-2">
+              <MobileAction
+                label="Ver detalhes"
+                onClick={() => {
+                  setSelectedReserva(acoesMobileReserva);
+                  setAcoesMobileReserva(null);
+                }}
+              />
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setCampanhaModal(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Salvar campanha
-            </Button>
+              {acoesMobileReserva.statusPagamento !== "confirmado" &&
+                acoesMobileReserva.statusPagamento !== "cancelado" && (
+                  <MobileAction
+                    label="Confirmar pagamento"
+                    onClick={() => {
+                      alterarStatus(acoesMobileReserva, "confirmado");
+                      setAcoesMobileReserva(null);
+                    }}
+                  />
+                )}
+
+              {(acoesMobileReserva.comprovantes || []).length < 3 &&
+                acoesMobileReserva.statusPagamento !== "cancelado" && (
+                  <MobileAction
+                    label="Anexar comprovante"
+                    onClick={() => {
+                      setComprovanteReserva(acoesMobileReserva);
+                      setAcoesMobileReserva(null);
+                    }}
+                  />
+                )}
+
+              {acoesMobileReserva.statusPagamento !== "pendente" &&
+                acoesMobileReserva.statusPagamento !== "confirmado" &&
+                acoesMobileReserva.statusPagamento !== "cancelado" && (
+                  <MobileAction
+                    label="Marcar como pendente"
+                    onClick={() => {
+                      alterarStatus(acoesMobileReserva, "pendente");
+                      setAcoesMobileReserva(null);
+                    }}
+                  />
+                )}
+
+              {acoesMobileReserva.statusPagamento !== "confirmado" &&
+                acoesMobileReserva.statusPagamento !== "cancelado" && (
+                  <MobileAction
+                    label="Cancelar reserva"
+                    danger
+                    onClick={() => {
+                      alterarStatus(acoesMobileReserva, "cancelado");
+                      setAcoesMobileReserva(null);
+                    }}
+                  />
+                )}
+
+              <a
+                href={whatsappUrl(acoesMobileReserva.telefone, mensagemReserva(acoesMobileReserva))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full rounded-xl border border-border px-4 py-3 text-sm text-center hover:bg-surface-2"
+              >
+                Abrir WhatsApp
+              </a>
+
+              <MobileAction
+                label="Copiar mensagem"
+                onClick={() => {
+                  copiarMensagem(acoesMobileReserva);
+                  setAcoesMobileReserva(null);
+                }}
+              />
+            </div>
+          )}
+        </Modal>
+
+        <Modal open={painelAoVivoModal} onClose={() => setPainelAoVivoModal(false)} title="Painel de competição ao vivo">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+              <p className="text-sm font-semibold text-orange-800">
+                Ranking em tempo real
+              </p>
+              <p className="text-xs text-orange-700 mt-1">
+                Use este painel para acompanhar a campanha durante reuniões, divulgações e chamadas com dirigentes.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <MiniMetric label="Meta geral" value={metaResumo.metaGeralCamisas} />
+              <MiniMetric label="Confirmadas" value={metaResumo.camisasConfirmadas} />
+              <MiniMetric label="Faltam" value={metaResumo.faltamParaMetaGeral} />
+              <MiniMetric label="% Meta" value={`${metaResumo.percentualMetaGeral}%`} />
+            </div>
+
+            <div className="space-y-3">
+              {topRanking.map((item) => (
+                <RankingCard key={item.congregacao} item={item} compact />
+              ))}
+            </div>
           </div>
-        </form>
-      </Modal>
+        </Modal>
 
-      <Modal
-        open={!!acoesMobileReserva}
-        onClose={() => setAcoesMobileReserva(null)}
-        title="Ações da reserva"
-      >
-        {acoesMobileReserva && (
-          <div className="space-y-2">
-            <MobileAction
-              label="Ver detalhes"
-              onClick={() => {
-                setSelectedReserva(acoesMobileReserva);
-                setAcoesMobileReserva(null);
-              }}
-            />
+        <Modal open={telaoModal} onClose={() => setTelaoModal(false)} title="Telão do congresso">
+          <div className="rounded-3xl bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 text-white p-6 md:p-8 overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-white/75">
+                  UMADRUR
+                </p>
+                <h2 className="text-3xl md:text-5xl font-heading font-bold mt-2">
+                  Ranking das Camisas
+                </h2>
+                <p className="text-white/80 mt-2">
+                  {campanha?.nomeCampanha || "Campanha ativa"}
+                </p>
+              </div>
 
-            {acoesMobileReserva.statusPagamento !== "confirmado" &&
-              acoesMobileReserva.statusPagamento !== "cancelado" && (
-                <MobileAction
-                  label="Confirmar pagamento"
-                  onClick={() => {
-                    alterarStatus(acoesMobileReserva, "confirmado");
-                    setAcoesMobileReserva(null);
-                  }}
-                />
-              )}
+              <div className="rounded-2xl bg-white/15 backdrop-blur px-4 py-3 text-right">
+                <p className="text-xs text-white/70">Meta geral</p>
+                <p className="text-3xl font-bold">{metaResumo.percentualMetaGeral}%</p>
+              </div>
+            </div>
 
-            {(acoesMobileReserva.comprovantes || []).length < 3 &&
-              acoesMobileReserva.statusPagamento !== "cancelado" && (
-                <MobileAction
-                  label="Anexar comprovante"
-                  onClick={() => {
-                    setComprovanteReserva(acoesMobileReserva);
-                    setAcoesMobileReserva(null);
-                  }}
-                />
-              )}
+            <div className="grid gap-4">
+              {topRanking.map((item) => (
+                <div
+                  key={item.congregacao}
+                  className="rounded-2xl bg-white/15 backdrop-blur border border-white/20 p-4"
+                >
+                  <div className="flex items-center justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="text-3xl">{positionIcon(item.posicao)}</div>
+                      <div>
+                        <p className="font-bold text-lg md:text-2xl">{item.congregacao}</p>
+                        <p className="text-white/75 text-sm">
+                          {item.camisasConfirmadas} confirmadas de {item.metaCamisas}
+                        </p>
+                      </div>
+                    </div>
 
-            {acoesMobileReserva.statusPagamento !== "pendente" &&
-              acoesMobileReserva.statusPagamento !== "confirmado" &&
-              acoesMobileReserva.statusPagamento !== "cancelado" && (
-                <MobileAction
-                  label="Marcar como pendente"
-                  onClick={() => {
-                    alterarStatus(acoesMobileReserva, "pendente");
-                    setAcoesMobileReserva(null);
-                  }}
-                />
-              )}
+                    <div className="text-right">
+                      <p className="text-3xl md:text-4xl font-bold">{item.percentualMeta}%</p>
+                      <p className="text-xs text-white/70">da meta</p>
+                    </div>
+                  </div>
 
-            {acoesMobileReserva.statusPagamento !== "confirmado" &&
-              acoesMobileReserva.statusPagamento !== "cancelado" && (
-                <MobileAction
-                  label="Cancelar reserva"
-                  danger
-                  onClick={() => {
-                    alterarStatus(acoesMobileReserva, "cancelado");
-                    setAcoesMobileReserva(null);
-                  }}
-                />
-              )}
-
-            <a
-              href={whatsappUrl(acoesMobileReserva.telefone, mensagemReserva(acoesMobileReserva))}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full rounded-xl border border-border px-4 py-3 text-sm text-center hover:bg-surface-2"
-            >
-              Abrir WhatsApp
-            </a>
-
-            <MobileAction
-              label="Copiar mensagem"
-              onClick={() => {
-                copiarMensagem(acoesMobileReserva);
-                setAcoesMobileReserva(null);
-              }}
-            />
+                  <div className="h-3 rounded-full bg-white/20 overflow-hidden">
+                    <div
+                      className="h-3 rounded-full bg-white"
+                      style={{ width: `${Math.min(100, item.percentualMeta || 0)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-      </Modal>
+        </Modal>
+      </div>
     </AdminLayout>
   );
 }
 
-function ResumoCard({ icon: Icon, label, value }) {
+function ResumoCardPremium({ icon: Icon, label, value, highlight = false }) {
   return (
-    <Card>
-      <div className="flex items-center gap-3">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+    <Card className={`transition-all hover:-translate-y-0.5 hover:shadow-lg ${highlight ? "border-orange-200 bg-orange-50/40" : ""}`}>
+      <div className="flex items-center gap-4">
+        <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ${highlight ? "bg-primary text-white" : "bg-primary/10 text-primary"}`}>
           <Icon size={20} />
         </div>
 
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-lg font-heading font-semibold text-foreground">{value}</p>
+          <p className="text-xl font-heading font-semibold text-foreground">{value}</p>
         </div>
       </div>
     </Card>
+  );
+}
+
+function ProgressBar({ percent, size = "md" }) {
+  const h = size === "lg" ? "h-4" : "h-2.5";
+
+  return (
+    <div className={`${h} rounded-full bg-surface-2 overflow-hidden`}>
+      <div
+        className={`${h} rounded-full ${percentClass(percent)} transition-all duration-700`}
+        style={{ width: `${Math.min(100, Number(percent || 0))}%` }}
+      />
+    </div>
+  );
+}
+
+function RankingCard({ item, compact = false }) {
+  return (
+    <div className={`rounded-2xl border p-4 transition-all hover:shadow-md ${item.posicao === 1 ? "border-amber-300 bg-amber-50/50" : "border-border bg-white"}`}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{positionIcon(item.posicao)}</span>
+            <div className="font-semibold text-sm text-foreground truncate">
+              {item.congregacao}
+            </div>
+          </div>
+
+          {!compact && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {item.totalJovens} jovens · meta {item.metaCamisas} camisas
+            </p>
+          )}
+        </div>
+
+        <span className={`rounded-full border text-xs font-bold px-2 py-1 whitespace-nowrap ${percentBadgeClass(item.percentualMeta)}`}>
+          {item.percentualMeta}%
+        </span>
+      </div>
+
+      <ProgressBar percent={item.percentualMeta} />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-muted-foreground mt-3">
+        <span>Reservadas: {item.camisasReservadas}</span>
+        <span>Confirmadas: {item.camisasConfirmadas}</span>
+        <span>Faltam: {item.faltamParaMeta}</span>
+        <span>Confirmado: {formatMoney(item.valorConfirmado)}</span>
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-border bg-white p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-heading font-semibold text-foreground">{value}</p>
+    </div>
   );
 }
 

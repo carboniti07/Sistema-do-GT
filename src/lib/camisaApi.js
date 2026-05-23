@@ -1,7 +1,6 @@
 import { api } from "./api";
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "https://sistema-da-umadrur.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export function getToken() {
   return localStorage.getItem("umadrur_token");
@@ -33,13 +32,18 @@ export async function anexarComprovanteReserva(id, file) {
     `${API_URL}/api/camisas/reservas/${id}/comprovantes`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
       body: formData,
     }
   );
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || "Erro ao anexar comprovante");
+
+  if (!res.ok) {
+    throw new Error(data?.message || "Erro ao anexar comprovante");
+  }
 
   return data;
 }
@@ -52,7 +56,9 @@ export async function removerComprovanteReserva(reservaId, comprovanteId) {
 }
 
 export async function getCampanhaAtiva() {
-  return api("/api/camisas/campanha-ativa");
+  return api("/api/camisas/campanha-ativa", {
+    token: getToken(),
+  });
 }
 
 export async function salvarCampanhaAtiva(payload) {
@@ -60,5 +66,34 @@ export async function salvarCampanhaAtiva(payload) {
     method: "PATCH",
     token: getToken(),
     body: payload,
+  });
+}
+
+export async function listCampanhasCamisa() {
+  return api("/api/camisas/campanhas", {
+    token: getToken(),
+  });
+}
+
+export async function criarCampanhaCamisa(payload) {
+  return api("/api/camisas/campanhas", {
+    method: "POST",
+    token: getToken(),
+    body: payload,
+  });
+}
+
+export async function atualizarStatusCampanha(id, status) {
+  return api(`/api/camisas/campanhas/${id}/status`, {
+    method: "PATCH",
+    token: getToken(),
+    body: { status },
+  });
+}
+
+export async function excluirCampanhaCamisa(id) {
+  return api(`/api/camisas/campanhas/${id}`, {
+    method: "DELETE",
+    token: getToken(),
   });
 }
