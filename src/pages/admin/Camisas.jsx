@@ -292,46 +292,7 @@ function getReservaItens(reserva) {
   ];
 }
 
-function abrirDetalhesReserva(reserva) {
-  setSelectedReserva(reserva);
 
-  setFinanceiroForm({
-    valorUnitario: reserva.valorUnitario || "",
-    valorTotal: reserva.valorTotal || "",
-    valorPago: reserva.valorPago || "",
-    formaPagamento: reserva.formaPagamento || "Pix",
-    statusPagamento: reserva.statusPagamento || "pendente",
-  });
-}
-
-async function salvarFinanceiroReserva(e) {
-  e.preventDefault();
-
-  if (!canManageFinanceiro) {
-    toast.error("Você não tem permissão para alterar dados financeiros.");
-    return;
-  }
-
-  if (!selectedReserva?.id) return;
-
-  try {
-    await atualizarFinanceiroReserva(selectedReserva.id, {
-      valorUnitario: Number(financeiroForm.valorUnitario || 0),
-      valorTotal: Number(financeiroForm.valorTotal || 0),
-      valorPago: Number(financeiroForm.valorPago || 0),
-      formaPagamento: financeiroForm.formaPagamento,
-      statusPagamento: financeiroForm.statusPagamento,
-    });
-
-    toast.success("Financeiro atualizado");
-
-    setSelectedReserva(null);
-
-    await loadData();
-  } catch (err) {
-    toast.error(err?.message || "Erro ao atualizar financeiro");
-  }
-}
 
 
 export default function Camisas() {
@@ -386,6 +347,49 @@ export default function Camisas() {
     recebedor: "",
     status: "ativa",
   });
+
+
+function abrirDetalhesReserva(reserva) {
+  setSelectedReserva(reserva);
+
+  setFinanceiroForm({
+    valorUnitario: reserva.valorUnitario || "",
+    valorTotal: reserva.valorTotal || "",
+    valorPago: reserva.valorPago || "",
+    formaPagamento: reserva.formaPagamento || "Pix",
+    statusPagamento: reserva.statusPagamento || "pendente",
+  });
+}
+
+async function salvarFinanceiroReserva(e) {
+  e.preventDefault();
+
+  if (!canManageFinanceiro) {
+    toast.error("Você não tem permissão para alterar dados financeiros.");
+    return;
+  }
+
+  if (!selectedReserva?.id) return;
+
+  try {
+    await atualizarFinanceiroReserva(selectedReserva.id, {
+      valorUnitario: Number(financeiroForm.valorUnitario || 0),
+      valorTotal: Number(financeiroForm.valorTotal || 0),
+      valorPago: Number(financeiroForm.valorPago || 0),
+      formaPagamento: financeiroForm.formaPagamento,
+      statusPagamento: financeiroForm.statusPagamento,
+    });
+
+    toast.success("Financeiro atualizado");
+
+    setSelectedReserva(null);
+
+    await loadData();
+  } catch (err) {
+    toast.error(err?.message || "Erro ao atualizar financeiro");
+  }
+}
+
 
   async function loadData() {
     try {
