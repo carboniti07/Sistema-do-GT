@@ -59,6 +59,8 @@ function buildFileName() {
 }
 
 function formatPhone(value = "") {
+
+  
   const digits = String(value).replace(/\D/g, "");
   if (digits.length === 11) {
     return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
@@ -68,6 +70,17 @@ function formatPhone(value = "") {
   }
   return value || "";
 }
+
+function maskCPF(value = "") {
+  const digits = String(value).replace(/\D/g, "");
+
+  if (digits.length !== 11) {
+    return "***.***.***-**";
+  }
+
+  return `${digits.slice(0, 3)}.***.***-${digits.slice(9, 11)}`;
+}
+
 
 function formatDateBR(date) {
   if (!date) return "-";
@@ -638,7 +651,7 @@ export default function Jovens() {
             <div><strong>Nascimento:</strong> {formatDateBR(selectedJovem.nascimento)}</div>
             <div><strong>Idade:</strong> {calcAge(selectedJovem.nascimento)} anos</div>
             <div><strong>Sexo:</strong> {selectedJovem.sexo || "-"}</div>
-            <div><strong>CPF:</strong> {selectedJovem.cpf || "-"}</div>
+            <div><strong>CPF:</strong> {maskCPF(selectedJovem.cpf)}</div>
             <div><strong>Telefone:</strong> {formatPhone(selectedJovem.telefone)}</div>
             <div><strong>CEP:</strong> {selectedJovem.cep || "-"}</div>
             <div><strong>Logradouro:</strong> {selectedJovem.logradouro || "-"}</div>
