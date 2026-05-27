@@ -1975,7 +1975,7 @@ async function salvarFinanceiroReserva(e) {
               <MobileAction
                 label="Ver detalhes"
                 onClick={() => {
-                  sabrirDetalhesReserva(acoesMobileReserva);
+                  abrirDetalhesReserva(acoesMobileReserva);
                   setAcoesMobileReserva(null);
                 }}
               />
