@@ -12,6 +12,7 @@ import {
   atualizarItemReservaCamisa,
   anexarComprovanteReserva,
   removerComprovanteReserva,
+  atualizarFinanceiroReserva,
   getCampanhaAtiva,
   salvarCampanhaAtiva,
   listCampanhasCamisa,
@@ -61,6 +62,7 @@ const statusOptions = [
   { value: "", label: "Todos os status" },
   { value: "pendente", label: "Pendente" },
   { value: "comprovante enviado", label: "Comprovante enviado" },
+  { value: "parcial", label: "Parcial" },
   { value: "confirmado", label: "Confirmado" },
   { value: "cancelado", label: "Cancelado" },
 ];
@@ -192,6 +194,43 @@ function getReservaItens(reserva) {
   ];
 }
 
+function abrirDetalhesReserva(reserva) {
+  setSelectedReserva(reserva);
+
+  setFinanceiroForm({
+    valorUnitario: reserva.valorUnitario || "",
+    valorTotal: reserva.valorTotal || "",
+    valorPago: reserva.valorPago || "",
+    formaPagamento: reserva.formaPagamento || "Pix",
+    statusPagamento: reserva.statusPagamento || "pendente",
+  });
+}
+
+async function salvarFinanceiroReserva(e) {
+  e.preventDefault();
+
+  if (!selectedReserva?.id) return;
+
+  try {
+    await atualizarFinanceiroReserva(selectedReserva.id, {
+      valorUnitario: Number(financeiroForm.valorUnitario || 0),
+      valorTotal: Number(financeiroForm.valorTotal || 0),
+      valorPago: Number(financeiroForm.valorPago || 0),
+      formaPagamento: financeiroForm.formaPagamento,
+      statusPagamento: financeiroForm.statusPagamento,
+    });
+
+    toast.success("Financeiro atualizado");
+
+    setSelectedReserva(null);
+
+    await loadData();
+  } catch (err) {
+    toast.error(err?.message || "Erro ao atualizar financeiro");
+  }
+}
+
+
 export default function Camisas() {
   const [reservas, setReservas] = useState([]);
   const [campanha, setCampanha] = useState(null);
@@ -221,6 +260,13 @@ export default function Camisas() {
     tamanho: "",
     observacao: "",
   });
+  const [financeiroForm, setFinanceiroForm] = useState({
+  valorUnitario: "",
+  valorTotal: "",
+  valorPago: "",
+  formaPagamento: "",
+  statusPagamento: "",
+});
 
   const [campanhaForm, setCampanhaForm] = useState({
     nomeCampanha: "",
@@ -1347,7 +1393,7 @@ export default function Camisas() {
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatDate(r.criadoEm)}</td>
                       <td className="py-2.5 px-4">
                         <div className="hidden md:flex items-center gap-1">
-                          <IconButton title="Ver detalhes" onClick={() => setSelectedReserva(r)}>
+                          <IconButton title="Ver detalhes" onClick={() => abrirDetalhesReserva(r)}>
                             <Eye size={16} />
                           </IconButton>
 
@@ -1427,6 +1473,164 @@ export default function Camisas() {
               <Detail label="Forma de pagamento" value={selectedReserva.formaPagamento} />
               <Detail label="Status" value={selectedReserva.statusPagamento} />
               <Detail label="Data da reserva" value={formatDate(selectedReserva.criadoEm)} />
+
+              <form
+  onSubmit={salvarFinanceiroReserva}
+  className="rounded-2xl border border-orange-100 bg-orange-50/40 p-4 space-y-4"
+>
+  <p className="font-semibold text-foreground">
+    Financeiro da reserva
+  </p>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+      <label className="text-sm font-medium">
+        Valor unitário
+      </label>
+
+      <input
+        type="number"
+        step="0.01"
+        value={financeiroForm.valorUnitario}
+        onChange={(e) =>
+          setFinanceiroForm((p) => ({
+            ...p,
+            valorUnitario: e.target.value,
+          }))
+        }
+        className="w-full rounded-xl border border-border bg-background px-3 py-2"
+      />
+    </div>
+
+    <div>
+      <label className="text-sm font-medium">
+        Valor total
+      </label>
+
+      <input
+        type="number"
+        step="0.01"
+        value={financeiroForm.valorTotal}
+        onChange={(e) =>
+          setFinanceiroForm((p) => ({
+            ...p,
+            valorTotal: e.target.value,
+          }))
+        }
+        className="w-full rounded-xl border border-border bg-background px-3 py-2"
+      />
+    </div>
+
+    <div>
+      <label className="text-sm font-medium">
+        Valor pago
+      </label>
+
+      <input
+        type="number"
+        step="0.01"
+        value={financeiroForm.valorPago}
+        onChange={(e) =>
+          setFinanceiroForm((p) => ({
+            ...p,
+            valorPago: e.target.value,
+          }))
+        }
+        className="w-full rounded-xl border border-border bg-background px-3 py-2"
+      />
+    </div>
+
+    <div>
+      <label className="text-sm font-medium">
+        Forma de pagamento
+      </label>
+
+      <select
+        value={financeiroForm.formaPagamento}
+        onChange={(e) =>
+          setFinanceiroForm((p) => ({
+            ...p,
+            formaPagamento: e.target.value,
+          }))
+        }
+        className="w-full rounded-xl border border-border bg-background px-3 py-2"
+      >
+        <option value="Pix">Pix</option>
+        <option value="Pix parcelado">
+          Pix parcelado
+        </option>
+        <option value="Dinheiro">
+          Dinheiro
+        </option>
+        <option value="Cartão">
+          Cartão
+        </option>
+      </select>
+    </div>
+
+    <div>
+      <label className="text-sm font-medium">
+        Status
+      </label>
+
+      <select
+        value={financeiroForm.statusPagamento}
+        onChange={(e) =>
+          setFinanceiroForm((p) => ({
+            ...p,
+            statusPagamento: e.target.value,
+          }))
+        }
+        className="w-full rounded-xl border border-border bg-background px-3 py-2"
+      >
+        <option value="pendente">
+          Pendente
+        </option>
+
+        <option value="comprovante enviado">
+          Comprovante enviado
+        </option>
+
+        <option value="parcial">
+          Parcial
+        </option>
+
+        <option value="confirmado">
+          Confirmado
+        </option>
+
+        <option value="cancelado">
+          Cancelado
+        </option>
+      </select>
+    </div>
+
+    <div className="rounded-xl border border-border bg-background px-3 py-2">
+      <p className="text-xs text-muted-foreground">
+        Saldo pendente
+      </p>
+
+      <p className="font-semibold">
+        {formatMoney(
+          Math.max(
+            0,
+            Number(financeiroForm.valorTotal || 0) -
+              Number(financeiroForm.valorPago || 0)
+          )
+        )}
+      </p>
+    </div>
+  </div>
+
+  <div className="flex justify-end">
+    <button
+      type="submit"
+      className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 font-medium"
+    >
+      Salvar financeiro
+    </button>
+  </div>
+</form>
 
               {selectedReserva.observacao && (
                 <div className="rounded-xl border border-border bg-surface-2/40 p-3">

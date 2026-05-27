@@ -22,6 +22,14 @@ export async function updatePagamentoReserva(id, statusPagamento) {
   });
 }
 
+export async function atualizarFinanceiroReserva(id, payload) {
+  return api(`/api/camisas/reservas/${id}/financeiro`, {
+    method: "PATCH",
+    token: getToken(),
+    body: payload,
+  });
+}
+
 export async function atualizarItemReservaCamisa(reservaId, itemId, payload) {
   return api(`/api/camisas/reservas/${reservaId}/itens/${itemId}`, {
     method: "PATCH",
