@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
 
   async function loadMe() {
     const token = localStorage.getItem(TOKEN_KEY);
+
     if (!token) {
       setUser(null);
       setLoading(false);
@@ -42,8 +43,81 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const hasPerm = (perm) => {
+    if (!user) return false;
+
+    const role = String(user.role || "").toUpperCase();
+
+    if (role === "ADMIN") return true;
+
+    if (Array.isArray(user.permissions) && user.permissions.includes(perm)) {
+      return true;
+    }
+
+    const rolePerms = {
+      SECRETARIA_GERAL: [
+        "CONG_VIEW",
+        "CONG_EDIT",
+        "JOVENS_VIEW",
+        "JOVENS_EDIT",
+        "JOVENS_APPROVE",
+        "REPORTS_VIEW",
+        "USERS_CREATE",
+        "USERS_EDIT",
+        "USERS_DELETE",
+        "USERS_MANAGE",
+        "CAMISAS_VIEW",
+        "CAMISAS_MANAGE",
+        "CAMISAS_COMPROVANTES_MANAGE",
+      ],
+
+      SECRETARIA_LOCAL: [
+        "CONG_VIEW",
+        "JOVENS_VIEW",
+        "JOVENS_EDIT",
+        "REPORTS_VIEW",
+      ],
+
+      LIDER: [
+        "CONG_VIEW",
+        "JOVENS_VIEW",
+        "JOVENS_EDIT",
+        "REPORTS_VIEW",
+      ],
+
+      VISUALIZADOR: [
+        "CONG_VIEW",
+        "JOVENS_VIEW",
+        "REPORTS_VIEW",
+      ],
+
+      COORDENADOR: [
+        "CONG_VIEW",
+        "CONG_EDIT",
+        "JOVENS_VIEW",
+        "JOVENS_EDIT",
+        "JOVENS_APPROVE",
+        "REPORTS_VIEW",
+        "USERS_CREATE",
+        "CAMISAS_VIEW",
+      ],
+
+      TESOUREIRO_CAMPO: [
+        "CONG_VIEW",
+        "JOVENS_VIEW",
+        "REPORTS_VIEW",
+        "CAMISAS_VIEW",
+        "CAMISAS_MANAGE",
+        "CAMISAS_FINANCE_MANAGE",
+        "CAMISAS_COMPROVANTES_MANAGE",
+      ],
+    };
+
+    return (rolePerms[role] || []).includes(perm);
+  };
+
   const value = useMemo(
-    () => ({ user, setUser, login, logout, loading, reload: loadMe }),
+    () => ({ user, setUser, login, logout, loading, reload: loadMe, hasPerm }),
     [user, loading]
   );
 
@@ -52,6 +126,10 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
   return ctx;
 }

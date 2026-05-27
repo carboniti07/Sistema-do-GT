@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Search, CalendarDays, Users, X, RotateCcw, Plus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
+import { useAuth } from "../../auth/AuthContext.jsx";
 
 const TOKEN_KEY = "umadrur_token";
 
@@ -22,6 +23,8 @@ const roleLabels = {
   SECRETARIA_LOCAL: "Secretaria Local",
   LIDER: "Líder",
   VISUALIZADOR: "Visualizador",
+  COORDENADOR: "Coordenador",
+  TESOUREIRO_CAMPO: "Tesoureiro Campo",
 };
 
 const scopeLabels = {
@@ -48,6 +51,8 @@ const roleOptions = [
   { value: "SECRETARIA_LOCAL", label: roleLabels.SECRETARIA_LOCAL },
   { value: "LIDER", label: roleLabels.LIDER },
   { value: "VISUALIZADOR", label: roleLabels.VISUALIZADOR },
+  { value: "COORDENADOR", label: roleLabels.COORDENADOR },
+  { value: "TESOUREIRO_CAMPO", label: roleLabels.TESOUREIRO_CAMPO },
 ];
 
 const statusOptions = [
@@ -104,9 +109,15 @@ function Pill({ children, tone = "neutral" }) {
 }
 
 function getRoleScope(role) {
-  if (role === "ADMIN" || role === "SECRETARIA_GERAL") {
+  if (
+    role === "ADMIN" ||
+    role === "SECRETARIA_GERAL" ||
+    role === "COORDENADOR" ||
+    role === "TESOUREIRO_CAMPO"
+  ) {
     return "ALL";
   }
+
   return "LIMITED";
 }
 
@@ -116,6 +127,10 @@ function roleNeedsCongregacao(role) {
 
 export default function Usuarios() {
   const qc = useQueryClient();
+  const { hasPerm } = useAuth();
+
+  const canCreateUsers = hasPerm("USERS_CREATE");
+  const canEditUsers = hasPerm("USERS_EDIT");
 
   const [search, setSearch] = useState("");
   const [filtRole, setFiltRole] = useState("");
@@ -183,6 +198,11 @@ export default function Usuarios() {
   };
 
   const openEdit = (row) => {
+    if (!canEditUsers) {
+      toast.error("Você não tem permissão para editar usuários");
+      return;
+    }
+
     setCreating(false);
     setEditing({
       id: row.id,
@@ -196,6 +216,11 @@ export default function Usuarios() {
   };
 
   const openCreate = () => {
+    if (!canCreateUsers) {
+      toast.error("Você não tem permissão para criar usuários");
+      return;
+    }
+
     setCreating(true);
     setEditing({
       id: null,
@@ -251,6 +276,16 @@ export default function Usuarios() {
       payload.email = email;
     }
 
+    if (creating && !canCreateUsers) {
+      toast.error("Você não tem permissão para criar usuários");
+      return;
+    }
+
+    if (!creating && !canEditUsers) {
+      toast.error("Você não tem permissão para editar usuários");
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -272,6 +307,11 @@ export default function Usuarios() {
   };
 
   const toggleStatus = async (row) => {
+    if (!canEditUsers) {
+      toast.error("Você não tem permissão para alterar status de usuários");
+      return;
+    }
+
     try {
       const nextActive = row.status !== "Ativo";
       await adminUpdateUser(row.id, { isActive: nextActive });
@@ -291,6 +331,11 @@ export default function Usuarios() {
   };
 
   const handleResetPassword = async (row) => {
+    if (!canEditUsers) {
+      toast.error("Você não tem permissão para resetar senhas");
+      return;
+    }
+
     try {
       await adminResetPassword(row.id);
       toast.success("Senha resetada para 123456");
@@ -327,13 +372,16 @@ export default function Usuarios() {
 
   const actions = (row) => (
     <div className="flex gap-2">
+      {canEditUsers && (
       <button
         onClick={() => openEdit(row)}
         className="text-xs px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-surface-2 transition-colors"
       >
         Editar
       </button>
+      )}
 
+      {canEditUsers && (
       <button
         onClick={() => requestToggleStatus(row)}
         className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
@@ -344,7 +392,9 @@ export default function Usuarios() {
       >
         {row.status === "Ativo" ? "Desativar" : "Ativar"}
       </button>
+      )}
 
+      {canEditUsers && (
       <button
         onClick={() => handleResetPassword(row)}
         className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors inline-flex items-center gap-1.5"
@@ -353,6 +403,11 @@ export default function Usuarios() {
         <RotateCcw size={14} />
         Reset
       </button>
+      )}
+
+      {!canEditUsers && (
+        <span className="text-xs text-muted-foreground">Somente criação/visualização</span>
+      )}
     </div>
   );
 
@@ -380,14 +435,16 @@ export default function Usuarios() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 h-10 rounded-xl bg-primary text-primary-foreground px-4 text-sm font-semibold hover:opacity-95 transition-opacity"
-          >
-            <Plus size={16} />
-            Novo usuário
-          </button>
+          {canCreateUsers && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 h-10 rounded-xl bg-primary text-primary-foreground px-4 text-sm font-semibold hover:opacity-95 transition-opacity"
+            >
+              <Plus size={16} />
+              Novo usuário
+            </button>
+          )}
         </div>
       </div>
 
@@ -585,7 +642,7 @@ export default function Usuarios() {
                   )}
                 </div>
 
-                {!creating && (
+                {!creating && canEditUsers && (
                   <div className="sm:col-span-2 mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/50 p-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground">Senha</p>

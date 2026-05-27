@@ -5,6 +5,7 @@ import Button from "../../components/Button";
 import Input from "../../components/Input";
 import SelectField from "../../components/SelectField";
 import Modal from "../../components/Modal";
+import { useAuth } from "../../context/AuthContext.jsx";
 import {
   listCamisaReservas,
   getCamisaResumo,
@@ -74,6 +75,103 @@ const formaPagamentoOptions = [
   { value: "Dinheiro", label: "Dinheiro" },
   { value: "Cartão", label: "Cartão" },
 ];
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+const rolePermissionMap = {
+  ADMIN: ["*"],
+  SECRETARIA_GERAL: [
+    "CONG_VIEW",
+    "CONG_EDIT",
+    "JOVENS_VIEW",
+    "JOVENS_EDIT",
+    "JOVENS_APPROVE",
+    "REPORTS_VIEW",
+    "USERS_CREATE",
+    "USERS_EDIT",
+    "USERS_DELETE",
+    "USERS_MANAGE",
+    "CAMISAS_VIEW",
+    "CAMISAS_MANAGE",
+    "CAMISAS_COMPROVANTES_MANAGE",
+  ],
+  SECRETARIA_LOCAL: [
+    "CONG_VIEW",
+    "JOVENS_VIEW",
+    "JOVENS_EDIT",
+    "REPORTS_VIEW",
+  ],
+  LIDER: [
+    "CONG_VIEW",
+    "JOVENS_VIEW",
+    "JOVENS_EDIT",
+    "REPORTS_VIEW",
+  ],
+  VISUALIZADOR: [
+    "CONG_VIEW",
+    "JOVENS_VIEW",
+    "REPORTS_VIEW",
+  ],
+  COORDENADOR: [
+    "CONG_VIEW",
+    "CONG_EDIT",
+    "JOVENS_VIEW",
+    "JOVENS_EDIT",
+    "JOVENS_APPROVE",
+    "REPORTS_VIEW",
+    "USERS_CREATE",
+    "CAMISAS_VIEW",
+  ],
+  TESOUREIRO_CAMPO: [
+    "CONG_VIEW",
+    "JOVENS_VIEW",
+    "REPORTS_VIEW",
+    "CAMISAS_VIEW",
+    "CAMISAS_MANAGE",
+    "CAMISAS_FINANCE_MANAGE",
+    "CAMISAS_COMPROVANTES_MANAGE",
+  ],
+};
+
+function userHasPermission(user, perm) {
+  if (!user || !perm) return false;
+
+  const role = String(user.role || "").toUpperCase();
+  const directPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+
+  if (role === "ADMIN") return true;
+  if (directPermissions.includes(perm)) return true;
+
+  const rolePerms = rolePermissionMap[role] || [];
+
+  return rolePerms.includes("*") || rolePerms.includes(perm);
+}
+
+function comprovanteUrl(url = "") {
+  const raw = String(url || "").trim();
+
+  if (!raw) return "#";
+
+  if (raw.startsWith("/uploads")) {
+    return `${API_BASE_URL}${raw}`;
+  }
+
+  try {
+    const parsed = new URL(raw);
+    const api = new URL(API_BASE_URL);
+
+    if (
+      ["localhost", "127.0.0.1"].includes(parsed.hostname) &&
+      !["localhost", "127.0.0.1"].includes(api.hostname)
+    ) {
+      return `${API_BASE_URL}${parsed.pathname}`;
+    }
+
+    return raw;
+  } catch {
+    return raw;
+  }
+}
 
 function formatMoney(value = 0) {
   return Number(value || 0).toLocaleString("pt-BR", {
@@ -194,7 +292,46 @@ function getReservaItens(reserva) {
   ];
 }
 
+function abrirDetalhesReserva(reserva) {
+  setSelectedReserva(reserva);
 
+  setFinanceiroForm({
+    valorUnitario: reserva.valorUnitario || "",
+    valorTotal: reserva.valorTotal || "",
+    valorPago: reserva.valorPago || "",
+    formaPagamento: reserva.formaPagamento || "Pix",
+    statusPagamento: reserva.statusPagamento || "pendente",
+  });
+}
+
+async function salvarFinanceiroReserva(e) {
+  e.preventDefault();
+
+  if (!canManageFinanceiro) {
+    toast.error("Você não tem permissão para alterar dados financeiros.");
+    return;
+  }
+
+  if (!selectedReserva?.id) return;
+
+  try {
+    await atualizarFinanceiroReserva(selectedReserva.id, {
+      valorUnitario: Number(financeiroForm.valorUnitario || 0),
+      valorTotal: Number(financeiroForm.valorTotal || 0),
+      valorPago: Number(financeiroForm.valorPago || 0),
+      formaPagamento: financeiroForm.formaPagamento,
+      statusPagamento: financeiroForm.statusPagamento,
+    });
+
+    toast.success("Financeiro atualizado");
+
+    setSelectedReserva(null);
+
+    await loadData();
+  } catch (err) {
+    toast.error(err?.message || "Erro ao atualizar financeiro");
+  }
+}
 
 
 export default function Camisas() {
@@ -203,6 +340,13 @@ export default function Camisas() {
   const [resumoApi, setResumoApi] = useState(null);
   const [campanhas, setCampanhas] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const { user } = useAuth();
+
+  const canManageCampanhas = userHasPermission(user, "CAMISAS_MANAGE");
+  const canManageFinanceiro = userHasPermission(user, "CAMISAS_FINANCE_MANAGE");
+  const canManageComprovantes = userHasPermission(user, "CAMISAS_COMPROVANTES_MANAGE");
+  const canEditItens = userHasPermission(user, "CAMISAS_MANAGE");
 
   const [search, setSearch] = useState("");
   const [filtCongregacao, setFiltCongregacao] = useState("");
@@ -242,44 +386,6 @@ export default function Camisas() {
     recebedor: "",
     status: "ativa",
   });
-
-function abrirDetalhesReserva(reserva) {
-  setSelectedReserva(reserva);
-
-  setFinanceiroForm({
-    valorUnitario: reserva.valorUnitario || "",
-    valorTotal: reserva.valorTotal || "",
-    valorPago: reserva.valorPago || "",
-    formaPagamento: reserva.formaPagamento || "Pix",
-    statusPagamento: reserva.statusPagamento || "pendente",
-  });
-}
-
-async function salvarFinanceiroReserva(e) {
-  e.preventDefault();
-
-  if (!selectedReserva?.id) return;
-
-  try {
-    await atualizarFinanceiroReserva(selectedReserva.id, {
-      valorUnitario: Number(financeiroForm.valorUnitario || 0),
-      valorTotal: Number(financeiroForm.valorTotal || 0),
-      valorPago: Number(financeiroForm.valorPago || 0),
-      formaPagamento: financeiroForm.formaPagamento,
-      statusPagamento: financeiroForm.statusPagamento,
-    });
-
-    toast.success("Financeiro atualizado");
-
-    setSelectedReserva(null);
-
-    await loadData();
-  } catch (err) {
-    toast.error(err?.message || "Erro ao atualizar financeiro");
-  }
-}
-
-
 
   async function loadData() {
     try {
@@ -536,6 +642,11 @@ async function salvarFinanceiroReserva(e) {
   }, [filtered, resumoFiltrado]);
 
   async function alterarStatus(reserva, statusPagamento) {
+    if (!canManageFinanceiro) {
+      toast.error("Você não tem permissão para alterar status financeiro.");
+      return;
+    }
+
     try {
       await updatePagamentoReserva(reserva.id, statusPagamento);
       toast.success("Status atualizado com sucesso");
@@ -546,6 +657,11 @@ async function salvarFinanceiroReserva(e) {
   }
 
   function abrirEditarItem(reserva, item) {
+    if (!canEditItens) {
+      toast.error("Você não tem permissão para alterar itens da reserva.");
+      return;
+    }
+
     if (!item?._id || item._id === "legacy") {
       toast.error("Esta reserva antiga não possui item individual editável");
       return;
@@ -561,6 +677,11 @@ async function salvarFinanceiroReserva(e) {
 
   async function salvarItemEditado(e) {
     e.preventDefault();
+
+    if (!canEditItens) {
+      toast.error("Você não tem permissão para alterar itens da reserva.");
+      return;
+    }
 
     if (!itemEdit?.reserva?.id || !itemEdit?.item?._id) return;
 
@@ -584,6 +705,11 @@ async function salvarFinanceiroReserva(e) {
   async function salvarComprovante(e) {
     e.preventDefault();
 
+    if (!canManageComprovantes) {
+      toast.error("Você não tem permissão para anexar comprovantes.");
+      return;
+    }
+
     if (!comprovanteReserva) return;
 
     if (!comprovanteArquivo) {
@@ -605,6 +731,11 @@ async function salvarFinanceiroReserva(e) {
   }
 
   async function removerComprovante(reservaId, comprovanteId) {
+    if (!canManageComprovantes) {
+      toast.error("Você não tem permissão para remover comprovantes.");
+      return;
+    }
+
     const confirmar = window.confirm("Deseja remover este comprovante?");
     if (!confirmar) return;
 
@@ -621,6 +752,11 @@ async function salvarFinanceiroReserva(e) {
 
   async function salvarCampanha(e) {
     e.preventDefault();
+
+    if (!canManageCampanhas) {
+      toast.error("Você não tem permissão para alterar campanhas.");
+      return;
+    }
 
     try {
       await salvarCampanhaAtiva({
@@ -639,6 +775,11 @@ async function salvarFinanceiroReserva(e) {
   async function criarNovaCampanha(e) {
     e.preventDefault();
 
+    if (!canManageCampanhas) {
+      toast.error("Você não tem permissão para criar campanhas.");
+      return;
+    }
+
     try {
       await criarCampanhaCamisa({
         ...campanhaForm,
@@ -655,6 +796,11 @@ async function salvarFinanceiroReserva(e) {
   }
 
   async function mudarStatusCampanha(campanhaId, status) {
+    if (!canManageCampanhas) {
+      toast.error("Você não tem permissão para alterar campanhas.");
+      return;
+    }
+
     try {
       await atualizarStatusCampanha(campanhaId, status);
       toast.success("Status da campanha atualizado");
@@ -665,6 +811,11 @@ async function salvarFinanceiroReserva(e) {
   }
 
   async function removerCampanha(campanhaId) {
+    if (!canManageCampanhas) {
+      toast.error("Você não tem permissão para excluir campanhas.");
+      return;
+    }
+
     const confirmar = window.confirm(
       "Deseja excluir esta campanha? Só é possível excluir campanhas sem reservas."
     );
@@ -1089,10 +1240,12 @@ async function salvarFinanceiroReserva(e) {
                 Telão
               </Button>
 
-              <Button onClick={abrirCampanhaModal}>
-                <Settings size={17} />
-                Campanhas
-              </Button>
+              {canManageCampanhas && (
+                <Button onClick={abrirCampanhaModal}>
+                  <Settings size={17} />
+                  Campanhas
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1401,25 +1554,25 @@ async function salvarFinanceiroReserva(e) {
                             <Eye size={16} />
                           </IconButton>
 
-                          {!confirmado && !cancelado && (
+                          {canManageFinanceiro && !confirmado && !cancelado && (
                             <IconButton title="Confirmar pagamento" onClick={() => alterarStatus(r, "confirmado")}>
                               <CheckCircle size={16} />
                             </IconButton>
                           )}
 
-                          {podeAnexar && (
+                          {canManageComprovantes && podeAnexar && (
                             <IconButton title="Anexar comprovante" onClick={() => setComprovanteReserva(r)}>
                               <Upload size={16} />
                             </IconButton>
                           )}
 
-                          {r.statusPagamento !== "pendente" && !confirmado && !cancelado && (
+                          {canManageFinanceiro && r.statusPagamento !== "pendente" && !confirmado && !cancelado && (
                             <IconButton title="Marcar pendente" onClick={() => alterarStatus(r, "pendente")}>
                               <Clock size={16} />
                             </IconButton>
                           )}
 
-                          {!confirmado && !cancelado && (
+                          {canManageFinanceiro && !confirmado && !cancelado && (
                             <IconButton title="Cancelar reserva" danger onClick={() => alterarStatus(r, "cancelado")}>
                               <XCircle size={16} />
                             </IconButton>
@@ -1478,7 +1631,8 @@ async function salvarFinanceiroReserva(e) {
               <Detail label="Status" value={selectedReserva.statusPagamento} />
               <Detail label="Data da reserva" value={formatDate(selectedReserva.criadoEm)} />
 
-              <form
+              {canManageFinanceiro ? (
+                <form
   onSubmit={salvarFinanceiroReserva}
   className="rounded-2xl border border-orange-100 bg-orange-50/40 p-4 space-y-4"
 >
@@ -1635,6 +1789,14 @@ async function salvarFinanceiroReserva(e) {
     </button>
   </div>
 </form>
+              ) : (
+                <div className="rounded-2xl border border-border bg-surface-2/40 p-4">
+                  <p className="font-semibold text-foreground">Financeiro da reserva</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Seu perfil permite visualizar os valores, mas não permite alterar valor pago, status financeiro ou forma de pagamento.
+                  </p>
+                </div>
+              )}
 
               {selectedReserva.observacao && (
                 <div className="rounded-xl border border-border bg-surface-2/40 p-3">
@@ -1667,14 +1829,16 @@ async function salvarFinanceiroReserva(e) {
                           )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => abrirEditarItem(selectedReserva, item)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
-                        >
-                          <Pencil size={13} />
-                          Alterar
-                        </button>
+                        {canEditItens && (
+                          <button
+                            type="button"
+                            onClick={() => abrirEditarItem(selectedReserva, item)}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                          >
+                            <Pencil size={13} />
+                            Alterar
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1685,7 +1849,8 @@ async function salvarFinanceiroReserva(e) {
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-semibold text-foreground">Comprovantes</p>
 
-                  {selectedReserva.statusPagamento !== "cancelado" &&
+                  {canManageComprovantes &&
+                    selectedReserva.statusPagamento !== "cancelado" &&
                     (selectedReserva.comprovantes || []).length < 3 && (
                       <button
                         type="button"
@@ -1708,7 +1873,7 @@ async function salvarFinanceiroReserva(e) {
                         className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2"
                       >
                         <a
-                          href={c.url}
+                          href={comprovanteUrl(c.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="min-w-0 flex-1 text-sm text-primary hover:underline truncate"
@@ -1720,14 +1885,16 @@ async function salvarFinanceiroReserva(e) {
                           {formatDate(c.enviadoEm)}
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={() => removerComprovante(selectedReserva.id, c._id)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 size={13} />
-                          Remover
-                        </button>
+                        {canManageComprovantes && (
+                          <button
+                            type="button"
+                            onClick={() => removerComprovante(selectedReserva.id, c._id)}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 size={13} />
+                            Remover
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1842,7 +2009,7 @@ async function salvarFinanceiroReserva(e) {
           </form>
         </Modal>
 
-        <Modal open={campanhaModal} onClose={() => setCampanhaModal(false)} title="Gestão de campanhas">
+        <Modal open={campanhaModal && canManageCampanhas} onClose={() => setCampanhaModal(false)} title="Gestão de campanhas">
           <div className="space-y-5">
             <form onSubmit={salvarCampanha} className="space-y-3">
               <div className="rounded-xl border border-border bg-surface-2/40 p-3">
@@ -1980,7 +2147,8 @@ async function salvarFinanceiroReserva(e) {
                 }}
               />
 
-              {acoesMobileReserva.statusPagamento !== "confirmado" &&
+              {canManageFinanceiro &&
+                acoesMobileReserva.statusPagamento !== "confirmado" &&
                 acoesMobileReserva.statusPagamento !== "cancelado" && (
                   <MobileAction
                     label="Confirmar pagamento"
@@ -1991,7 +2159,8 @@ async function salvarFinanceiroReserva(e) {
                   />
                 )}
 
-              {(acoesMobileReserva.comprovantes || []).length < 3 &&
+              {canManageComprovantes &&
+                (acoesMobileReserva.comprovantes || []).length < 3 &&
                 acoesMobileReserva.statusPagamento !== "cancelado" && (
                   <MobileAction
                     label="Anexar comprovante"
@@ -2002,7 +2171,8 @@ async function salvarFinanceiroReserva(e) {
                   />
                 )}
 
-              {acoesMobileReserva.statusPagamento !== "pendente" &&
+              {canManageFinanceiro &&
+                acoesMobileReserva.statusPagamento !== "pendente" &&
                 acoesMobileReserva.statusPagamento !== "confirmado" &&
                 acoesMobileReserva.statusPagamento !== "cancelado" && (
                   <MobileAction
@@ -2014,7 +2184,8 @@ async function salvarFinanceiroReserva(e) {
                   />
                 )}
 
-              {acoesMobileReserva.statusPagamento !== "confirmado" &&
+              {canManageFinanceiro &&
+                acoesMobileReserva.statusPagamento !== "confirmado" &&
                 acoesMobileReserva.statusPagamento !== "cancelado" && (
                   <MobileAction
                     label="Cancelar reserva"
