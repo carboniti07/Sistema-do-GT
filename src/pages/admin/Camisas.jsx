@@ -5,7 +5,7 @@ import Button from "../../components/Button";
 import Input from "../../components/Input";
 import SelectField from "../../components/SelectField";
 import Modal from "../../components/Modal";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useAuth } from "../../auth/AuthContext.jsx";
 import {
   listCamisaReservas,
   getCamisaResumo,
