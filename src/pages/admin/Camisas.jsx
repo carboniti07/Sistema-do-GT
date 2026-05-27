@@ -9,6 +9,7 @@ import {
   listCamisaReservas,
   getCamisaResumo,
   updatePagamentoReserva,
+  atualizarItemReservaCamisa,
   anexarComprovanteReserva,
   removerComprovanteReserva,
   getCampanhaAtiva,
@@ -36,19 +37,25 @@ import {
   Trash2,
   Target,
   Trophy,
-  Medal,
   Plus,
   Archive,
   Power,
   Crown,
-  Award,
   BarChart3,
   TrendingUp,
   Maximize2,
   Monitor,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
+
+const TAMANHOS = ["PP", "P", "M", "G", "GG", "G1", "G2", "G3", "G4"];
+
+const tamanhoCamisaOptions = TAMANHOS.map((t) => ({
+  value: t,
+  label: t,
+}));
 
 const statusOptions = [
   { value: "", label: "Todos os status" },
@@ -80,21 +87,26 @@ function formatDate(value) {
   return date.toLocaleDateString("pt-BR");
 }
 
-function formatCPF(value = "") {
-  const digits = String(value).replace(/\D/g, "");
-  if (digits.length !== 11) return value || "";
-  return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
-
 function formatPhone(value = "") {
   const digits = String(value).replace(/\D/g, "");
+
   if (digits.length === 11) {
     return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
   }
+
   if (digits.length === 10) {
     return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
   }
+
   return value || "";
+}
+
+function maskCPF(value = "") {
+  const digits = String(value).replace(/\D/g, "");
+
+  if (digits.length !== 11) return "***.***.***-**";
+
+  return `${digits.slice(0, 3)}.***.***-${digits.slice(9, 11)}`;
 }
 
 function statusBadgeClass(status) {
@@ -118,6 +130,7 @@ function campanhaBadgeClass(status) {
   if (status === "encerrada") return "bg-yellow-50 text-yellow-700 border-yellow-200";
   if (status === "arquivada") return "bg-slate-50 text-slate-700 border-slate-200";
   if (status === "cancelada") return "bg-red-50 text-red-700 border-red-200";
+
   return "bg-surface-2 text-muted-foreground border-border";
 }
 
@@ -147,6 +160,7 @@ function positionIcon(posicao) {
   if (posicao === 1) return "🥇";
   if (posicao === 2) return "🥈";
   if (posicao === 3) return "🥉";
+
   return `#${posicao}`;
 }
 
@@ -161,6 +175,21 @@ function mensagemReserva(reserva) {
   }
 
   return `Paz do Senhor, ${reserva.nome}. Identificamos sua reserva da camisa da UMADRUR. Consta como pagamento pendente. Assim que realizar o pagamento, envie o comprovante para confirmação.`;
+}
+
+function getReservaItens(reserva) {
+  if (Array.isArray(reserva?.itens) && reserva.itens.length) {
+    return reserva.itens;
+  }
+
+  return [
+    {
+      _id: "legacy",
+      nomePessoa: reserva?.nome || "Titular da reserva",
+      tamanho: reserva?.tamanho || "-",
+      observacao: reserva?.observacao || "Reserva antiga sem itens individualizados",
+    },
+  ];
 }
 
 export default function Camisas() {
@@ -185,6 +214,13 @@ export default function Camisas() {
   const [comprovanteArquivo, setComprovanteArquivo] = useState(null);
   const [telaoModal, setTelaoModal] = useState(false);
   const [painelAoVivoModal, setPainelAoVivoModal] = useState(false);
+
+  const [itemEdit, setItemEdit] = useState(null);
+  const [itemForm, setItemForm] = useState({
+    nomePessoa: "",
+    tamanho: "",
+    observacao: "",
+  });
 
   const [campanhaForm, setCampanhaForm] = useState({
     nomeCampanha: "",
@@ -244,17 +280,24 @@ export default function Camisas() {
   }, [reservas]);
 
   const tamanhoOptions = useMemo(() => {
-    const values = [...new Set(reservas.map((r) => r.tamanho).filter(Boolean))];
+    const values = new Set();
+
+    reservas.forEach((r) => {
+      getReservaItens(r).forEach((item) => {
+        if (item.tamanho) values.add(item.tamanho);
+      });
+    });
 
     return [
       { value: "", label: "Todos tamanhos" },
-      ...values.sort().map((t) => ({ value: t, label: t })),
+      ...[...values].sort().map((t) => ({ value: t, label: t })),
     ];
   }, [reservas]);
 
   const filtered = useMemo(() => {
     return reservas.filter((r) => {
       const term = search.trim().toLowerCase();
+      const itens = getReservaItens(r);
 
       if (term) {
         const alvo = [
@@ -265,6 +308,8 @@ export default function Camisas() {
           r.tamanho,
           r.formaPagamento,
           r.statusPagamento,
+          r.observacao,
+          ...itens.map((item) => `${item.nomePessoa} ${item.tamanho} ${item.observacao}`),
         ]
           .join(" ")
           .toLowerCase();
@@ -273,7 +318,11 @@ export default function Camisas() {
       }
 
       if (filtCongregacao && r.congregacao !== filtCongregacao) return false;
-      if (filtTamanho && r.tamanho !== filtTamanho) return false;
+
+      if (filtTamanho && !itens.some((item) => item.tamanho === filtTamanho)) {
+        return false;
+      }
+
       if (filtStatus && r.statusPagamento !== filtStatus) return false;
       if (filtForma && r.formaPagamento !== filtForma) return false;
 
@@ -351,8 +400,10 @@ export default function Camisas() {
     const map = {};
 
     filtered.forEach((r) => {
-      const tamanho = r.tamanho || "Não informado";
-      map[tamanho] = (map[tamanho] || 0) + Number(r.quantidade || 0);
+      getReservaItens(r).forEach((item) => {
+        const tamanho = item.tamanho || "Não informado";
+        map[tamanho] = (map[tamanho] || 0) + 1;
+      });
     });
 
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
@@ -418,7 +469,11 @@ export default function Camisas() {
     const data = [
       { label: "Confirmados", value: resumoFiltrado.confirmados, className: "bg-green-500" },
       { label: "Pendentes", value: resumoFiltrado.pendentes, className: "bg-yellow-500" },
-      { label: "Cancelados", value: filtered.filter((r) => r.statusPagamento === "cancelado").length, className: "bg-red-500" },
+      {
+        label: "Cancelados",
+        value: filtered.filter((r) => r.statusPagamento === "cancelado").length,
+        className: "bg-red-500",
+      },
       { label: "Comprovantes", value: resumoFiltrado.comprovantesEnviados, className: "bg-blue-500" },
     ];
 
@@ -437,6 +492,42 @@ export default function Camisas() {
       await loadData();
     } catch (err) {
       toast.error(err?.message || "Erro ao atualizar status");
+    }
+  }
+
+  function abrirEditarItem(reserva, item) {
+    if (!item?._id || item._id === "legacy") {
+      toast.error("Esta reserva antiga não possui item individual editável");
+      return;
+    }
+
+    setItemEdit({ reserva, item });
+    setItemForm({
+      nomePessoa: item.nomePessoa || "",
+      tamanho: item.tamanho || "",
+      observacao: item.observacao || "",
+    });
+  }
+
+  async function salvarItemEditado(e) {
+    e.preventDefault();
+
+    if (!itemEdit?.reserva?.id || !itemEdit?.item?._id) return;
+
+    try {
+      await atualizarItemReservaCamisa(itemEdit.reserva.id, itemEdit.item._id, {
+        nomePessoa: itemForm.nomePessoa,
+        tamanho: itemForm.tamanho,
+        observacao: itemForm.observacao,
+      });
+
+      toast.success("Item da camisa atualizado");
+      setItemEdit(null);
+      setItemForm({ nomePessoa: "", tamanho: "", observacao: "" });
+      setSelectedReserva(null);
+      await loadData();
+    } catch (err) {
+      toast.error(err?.message || "Erro ao atualizar item");
     }
   }
 
@@ -580,6 +671,7 @@ export default function Camisas() {
 
       const wsResumo = wb.addWorksheet("Resumo Executivo");
       const wsReservas = wb.addWorksheet("Reservas");
+      const wsItens = wb.addWorksheet("Itens das Camisas");
       const wsCongregacoes = wb.addWorksheet("Congregações");
       const wsTamanhos = wb.addWorksheet("Tamanhos");
       const wsRanking = wb.addWorksheet("Ranking Público");
@@ -592,9 +684,6 @@ export default function Camisas() {
         border: "FFE5E7EB",
         soft: "FFFFFAF5",
         text: "FF111827",
-        green: "FF16A34A",
-        red: "FFDC2626",
-        orange: "FFF97316",
       };
 
       function styleTitle(ws, title, range) {
@@ -662,28 +751,23 @@ export default function Camisas() {
       wsResumo.getColumn(2).numFmt = '"R$" #,##0.00';
       wsResumo.getColumn(4).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsReservas, "UMADRUR | Relatório de Reservas", "A1:L1");
+      styleTitle(wsReservas, "UMADRUR | Relatório de Reservas", "A1:M1");
       wsReservas.addRow([`Gerado em: ${new Date().toLocaleString("pt-BR")}`]);
-      wsReservas.addRow([
-        `Filtros: busca=${search || "-"} | congregação=${filtCongregacao || "Todas"} | tamanho=${filtTamanho || "Todos"} | status=${filtStatus || "Todos"} | forma=${filtForma || "Todas"} | período=${dataInicio || "-"} até ${dataFim || "-"}`,
-      ]);
-      wsReservas.mergeCells("A2:L2");
-      wsReservas.mergeCells("A3:L3");
       wsReservas.addRow([]);
-
       styleHeader(
         wsReservas.addRow([
           "Nome",
           "CPF",
           "Telefone",
           "Congregação",
-          "Tamanho",
+          "Tamanho principal",
           "Quantidade",
           "Forma de Pagamento",
           "Valor Unitário",
           "Valor Total",
           "Status",
           "Comprovantes",
+          "Observação",
           "Data da Reserva",
         ])
       );
@@ -691,7 +775,7 @@ export default function Camisas() {
       filtered.forEach((r, idx) => {
         const row = wsReservas.addRow([
           r.nome,
-          formatCPF(r.cpf),
+          maskCPF(r.cpf),
           formatPhone(r.telefone),
           r.congregacao,
           r.tamanho,
@@ -701,6 +785,7 @@ export default function Camisas() {
           Number(r.valorTotal || 0),
           r.statusPagamento,
           `${(r.comprovantes || []).length}/3`,
+          r.observacao || "",
           formatDate(r.criadoEm),
         ]);
         styleBodyRow(row, idx);
@@ -711,17 +796,62 @@ export default function Camisas() {
         { width: 18 },
         { width: 18 },
         { width: 34 },
-        { width: 12 },
+        { width: 16 },
         { width: 12 },
         { width: 22 },
         { width: 16 },
         { width: 16 },
         { width: 22 },
         { width: 16 },
+        { width: 36 },
         { width: 18 },
       ];
       wsReservas.getColumn(8).numFmt = '"R$" #,##0.00';
       wsReservas.getColumn(9).numFmt = '"R$" #,##0.00';
+
+      styleTitle(wsItens, "UMADRUR | Itens Individuais das Camisas", "A1:H1");
+      wsItens.addRow([]);
+      styleHeader(
+        wsItens.addRow([
+          "Reserva",
+          "CPF",
+          "Titular",
+          "Congregação",
+          "Pessoa",
+          "Tamanho",
+          "Observação",
+          "Status",
+        ])
+      );
+
+      let idxItens = 0;
+      filtered.forEach((r) => {
+        getReservaItens(r).forEach((item) => {
+          const row = wsItens.addRow([
+            r.id,
+            maskCPF(r.cpf),
+            r.nome,
+            r.congregacao,
+            item.nomePessoa,
+            item.tamanho,
+            item.observacao || "",
+            r.statusPagamento,
+          ]);
+          styleBodyRow(row, idxItens);
+          idxItens += 1;
+        });
+      });
+
+      wsItens.columns = [
+        { width: 28 },
+        { width: 18 },
+        { width: 30 },
+        { width: 34 },
+        { width: 30 },
+        { width: 12 },
+        { width: 40 },
+        { width: 22 },
+      ];
 
       styleTitle(wsCongregacoes, "UMADRUR | Resumo por Congregação", "A1:F1");
       wsCongregacoes.addRow([]);
@@ -1093,7 +1223,7 @@ export default function Camisas() {
 
         <Card>
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-3 mb-5">
-            <Input label="Buscar" value={search} onChange={setSearch} placeholder="Nome, CPF ou telefone" />
+            <Input label="Buscar" value={search} onChange={setSearch} placeholder="Nome, CPF, pessoa ou telefone" />
 
             <SelectField
               label="Congregação"
@@ -1147,7 +1277,7 @@ export default function Camisas() {
                     "CPF",
                     "Telefone",
                     "Congregação",
-                    "Tamanho",
+                    "Itens",
                     "Qtd.",
                     "Pagamento",
                     "Valor",
@@ -1171,6 +1301,7 @@ export default function Camisas() {
                   const confirmado = r.statusPagamento === "confirmado";
                   const cancelado = r.statusPagamento === "cancelado";
                   const podeAnexar = !cancelado && (r.comprovantes || []).length < 3;
+                  const itens = getReservaItens(r);
 
                   return (
                     <tr key={r.id} className="border-b border-border/60 hover:bg-orange-50/40 transition-colors">
@@ -1182,10 +1313,26 @@ export default function Camisas() {
                           <span>{r.nome}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatCPF(r.cpf)}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{maskCPF(r.cpf)}</td>
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatPhone(r.telefone)}</td>
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.congregacao}</td>
-                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.tamanho}</td>
+                      <td className="py-2.5 px-4 text-sm min-w-[220px]">
+                        <div className="flex flex-wrap gap-1">
+                          {itens.slice(0, 3).map((item, idx) => (
+                            <span
+                              key={item._id || idx}
+                              className="rounded-full bg-surface-2 border border-border px-2 py-1 text-xs"
+                            >
+                              {item.nomePessoa} · {item.tamanho}
+                            </span>
+                          ))}
+                          {itens.length > 3 && (
+                            <span className="rounded-full bg-primary/10 text-primary px-2 py-1 text-xs">
+                              +{itens.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.quantidade}</td>
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.formaPagamento}</td>
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap font-semibold">{formatMoney(r.valorTotal)}</td>
@@ -1269,18 +1416,62 @@ export default function Camisas() {
 
         <Modal open={!!selectedReserva} onClose={() => setSelectedReserva(null)} title="Detalhes da reserva">
           {selectedReserva && (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-4 text-sm">
               <Detail label="Nome" value={selectedReserva.nome} />
-              <Detail label="CPF" value={formatCPF(selectedReserva.cpf)} />
+              <Detail label="CPF" value={maskCPF(selectedReserva.cpf)} />
               <Detail label="Telefone" value={formatPhone(selectedReserva.telefone)} />
               <Detail label="Congregação" value={selectedReserva.congregacao} />
-              <Detail label="Tamanho" value={selectedReserva.tamanho} />
               <Detail label="Quantidade" value={selectedReserva.quantidade} />
               <Detail label="Valor unitário" value={formatMoney(selectedReserva.valorUnitario)} />
               <Detail label="Valor total" value={formatMoney(selectedReserva.valorTotal)} />
               <Detail label="Forma de pagamento" value={selectedReserva.formaPagamento} />
               <Detail label="Status" value={selectedReserva.statusPagamento} />
               <Detail label="Data da reserva" value={formatDate(selectedReserva.criadoEm)} />
+
+              {selectedReserva.observacao && (
+                <div className="rounded-xl border border-border bg-surface-2/40 p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Observação geral</p>
+                  <p className="text-sm text-foreground">{selectedReserva.observacao}</p>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-border">
+                <p className="font-semibold text-foreground mb-3">Camisas da reserva</p>
+
+                <div className="space-y-2">
+                  {getReservaItens(selectedReserva).map((item, idx) => (
+                    <div
+                      key={item._id || idx}
+                      className="rounded-xl border border-border bg-white p-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {idx + 1}. {item.nomePessoa}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Tamanho: <strong>{item.tamanho}</strong>
+                          </p>
+                          {item.observacao && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Observação: {item.observacao}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => abrirEditarItem(selectedReserva, item)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                        >
+                          <Pencil size={13} />
+                          Alterar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <div className="pt-4 border-t border-border">
                 <div className="flex items-center justify-between mb-3">
@@ -1342,6 +1533,54 @@ export default function Camisas() {
               </div>
             </div>
           )}
+        </Modal>
+
+        <Modal
+          open={!!itemEdit}
+          onClose={() => {
+            setItemEdit(null);
+            setItemForm({ nomePessoa: "", tamanho: "", observacao: "" });
+          }}
+          title="Alterar item da camisa"
+        >
+          <form onSubmit={salvarItemEditado} className="space-y-4">
+            <Input
+              label="Nome da pessoa"
+              value={itemForm.nomePessoa}
+              onChange={(v) => setItemForm((p) => ({ ...p, nomePessoa: v }))}
+            />
+
+            <SelectField
+              label="Tamanho"
+              value={tamanhoCamisaOptions.find((o) => o.value === itemForm.tamanho) || null}
+              options={tamanhoCamisaOptions}
+              onChange={(opt) => setItemForm((p) => ({ ...p, tamanho: opt?.value || "" }))}
+            />
+
+            <Input
+              label="Observação"
+              value={itemForm.observacao}
+              onChange={(v) => setItemForm((p) => ({ ...p, observacao: v }))}
+              placeholder="Ex: vizinho, adolescente, visitante..."
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setItemEdit(null);
+                  setItemForm({ nomePessoa: "", tamanho: "", observacao: "" });
+                }}
+              >
+                Cancelar
+              </Button>
+
+              <Button type="submit">
+                Salvar alteração
+              </Button>
+            </div>
+          </form>
         </Modal>
 
         <Modal
