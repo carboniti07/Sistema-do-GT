@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api.js";
 
-const TOKEN_KEY = "umadrur_token";
+const TOKEN_KEY = "gt_token";
 
 const AuthContext = createContext(null);
 
@@ -58,9 +58,9 @@ export function AuthProvider({ children }) {
       SECRETARIA_GERAL: [
         "CONG_VIEW",
         "CONG_EDIT",
-        "JOVENS_VIEW",
-        "JOVENS_EDIT",
-        "JOVENS_APPROVE",
+        "ADOLESCENTES_VIEW",
+        "ADOLESCENTES_EDIT",
+        "ADOLESCENTES_APPROVE",
         "REPORTS_VIEW",
         "USERS_CREATE",
         "USERS_EDIT",
@@ -73,30 +73,30 @@ export function AuthProvider({ children }) {
 
       SECRETARIA_LOCAL: [
         "CONG_VIEW",
-        "JOVENS_VIEW",
-        "JOVENS_EDIT",
+        "ADOLESCENTES_VIEW",
+        "ADOLESCENTES_EDIT",
         "REPORTS_VIEW",
       ],
 
       LIDER: [
         "CONG_VIEW",
-        "JOVENS_VIEW",
-        "JOVENS_EDIT",
+        "ADOLESCENTES_VIEW",
+        "ADOLESCENTES_EDIT",
         "REPORTS_VIEW",
       ],
 
       VISUALIZADOR: [
         "CONG_VIEW",
-        "JOVENS_VIEW",
+        "ADOLESCENTES_VIEW",
         "REPORTS_VIEW",
       ],
 
       COORDENADOR: [
         "CONG_VIEW",
         "CONG_EDIT",
-        "JOVENS_VIEW",
-        "JOVENS_EDIT",
-        "JOVENS_APPROVE",
+        "ADOLESCENTES_VIEW",
+        "ADOLESCENTES_EDIT",
+        "ADOLESCENTES_APPROVE",
         "REPORTS_VIEW",
         "USERS_CREATE",
         "CAMISAS_VIEW",
@@ -104,7 +104,7 @@ export function AuthProvider({ children }) {
 
       TESOUREIRO_CAMPO: [
         "CONG_VIEW",
-        "JOVENS_VIEW",
+        "ADOLESCENTES_VIEW",
         "REPORTS_VIEW",
         "CAMISAS_VIEW",
         "CAMISAS_MANAGE",

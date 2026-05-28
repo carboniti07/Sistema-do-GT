@@ -1,17 +1,22 @@
-import { api } from "./api";
+import { api } from "./api.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const TOKEN_KEY = "gt_token";
 
 export function getToken() {
-  return localStorage.getItem("umadrur_token");
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 export async function listCamisaReservas() {
-  return api("/api/camisas/reservas", { token: getToken() });
+  return api("/api/camisas/reservas", {
+    token: getToken(),
+  });
 }
 
 export async function getCamisaResumo() {
-  return api("/api/camisas/resumo", { token: getToken() });
+  return api("/api/camisas/resumo", {
+    token: getToken(),
+  });
 }
 
 export async function updatePagamentoReserva(id, statusPagamento) {
@@ -65,10 +70,13 @@ export async function anexarComprovanteReserva(id, file) {
 }
 
 export async function removerComprovanteReserva(reservaId, comprovanteId) {
-  return api(`/api/camisas/reservas/${reservaId}/comprovantes/${comprovanteId}`, {
-    method: "DELETE",
-    token: getToken(),
-  });
+  return api(
+    `/api/camisas/reservas/${reservaId}/comprovantes/${comprovanteId}`,
+    {
+      method: "DELETE",
+      token: getToken(),
+    }
+  );
 }
 
 export async function getCampanhaAtiva() {

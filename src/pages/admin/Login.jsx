@@ -74,8 +74,9 @@ export default function Login() {
         </div>
 
         <h1 className="text-2xl font-heading font-semibold text-foreground text-center mt-6">
-          Painel UMADRUR
+          Painel Geração Teen
         </h1>
+
         <p className="text-muted-foreground text-center mt-2 mb-7">
           Entre com suas credenciais para continuar
         </p>
@@ -117,7 +118,9 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 font-medium text-center">{error}</p>
+            <p className="text-sm text-red-600 font-medium text-center">
+              {error}
+            </p>
           )}
 
           <Button type="submit" fullWidth className="mt-2" disabled={loading}>

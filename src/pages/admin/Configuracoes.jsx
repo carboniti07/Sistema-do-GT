@@ -16,14 +16,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-const KEY = "umadrur_config";
+const KEY = "gt_config";
 
 const defaultConfig = {
-  // Identidade
-  appName: "UMADRUR",
+  appName: "Geração Teen",
   adminSubtitle: "Painel Administrativo",
-
-  // Congregações (nome exibido)
   enableCongregationCustomNames: true,
 };
 
@@ -143,7 +140,7 @@ export default function Configuracoes() {
               label="Nome do sistema"
               value={cfg.appName}
               onChange={(v) => set("appName", v)}
-              placeholder="UMADRUR"
+              placeholder="Geração Teen"
             />
             <Input
               label="Subtítulo do painel"
@@ -203,7 +200,7 @@ export default function Configuracoes() {
               label="Email administrativo"
               value={cfg.mockEmail}
               onChange={(v) => set("mockEmail", v)}
-              placeholder="admin@umadrur.com"
+             placeholder="admin@geracaoteen.com"
             />
 
             <div className="relative">

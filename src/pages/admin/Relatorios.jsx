@@ -2,8 +2,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import Card from "../../components/Card";
 import StatCard from "../../components/StatCard";
-import { Users, Droplets, Sparkles, Shield, BarChart3, Building2, RefreshCcw } from "lucide-react";
-import { listJovens } from "../../lib/jovensApi";
+import {
+  Users,
+  Droplets,
+  Sparkles,
+  BarChart3,
+  Building2,
+  RefreshCcw,
+  CheckCircle2,
+  ImageIcon,
+  MessageCircle,
+} from "lucide-react";
+import { listAdolescentes } from "../../lib/adolescentesApi.js";
 import { congregacoes, getCongregacaoNome } from "../../lib/congregacoes";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext.jsx";
@@ -25,8 +35,10 @@ import {
 function monthKey(dateStr) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return "Invalid";
+
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
+
   return `${y}-${m}`;
 }
 
@@ -58,7 +70,8 @@ function CustomTooltip({ active, payload, label, labelPrefix }) {
 
 export default function Relatorios() {
   const { user } = useAuth();
-  const [jovens, setJovens] = useState([]);
+
+  const [adolescentes, setAdolescentes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const canViewAll = hasPermission(user, Perms.VIEW_ALL);
@@ -69,17 +82,22 @@ export default function Relatorios() {
       const ids = Array.isArray(user?.congregacaoIds) ? user.congregacaoIds : [];
       return ids.map((id) => getCongregacaoNome(id)).filter(Boolean);
     }
+
     return congregacoes;
   }, [isLimited, user]);
 
   async function loadData() {
     try {
       setLoading(true);
-      const data = await listJovens();
-      setJovens(Array.isArray(data?.jovens) ? data.jovens : []);
+
+      const data = await listAdolescentes();
+
+      setAdolescentes(
+        Array.isArray(data?.adolescentes) ? data.adolescentes : []
+      );
     } catch (err) {
       toast.error(err?.message || "Erro ao carregar relatórios");
-      setJovens([]);
+      setAdolescentes([]);
     } finally {
       setLoading(false);
     }
@@ -90,61 +108,123 @@ export default function Relatorios() {
   }, []);
 
   const totals = useMemo(() => {
-    const total = jovens.length;
-    const batAguas = jovens.filter((j) => j.batismoAguas).length;
-    const batES = jovens.filter((j) => j.batismoES).length;
-    const comCargo = jovens.filter((j) => j.cargo).length;
-    return { total, batAguas, batES, comCargo };
-  }, [jovens]);
+    const total = adolescentes.length;
+
+    const batAguas = adolescentes.filter(
+      (adolescente) => adolescente.batismoAguas
+    ).length;
+
+    const batES = adolescentes.filter(
+      (adolescente) => adolescente.batismoES
+    ).length;
+
+    const autorizaParticipacao = adolescentes.filter(
+      (adolescente) => adolescente.autorizaParticipacao
+    ).length;
+
+    const autorizaImagem = adolescentes.filter(
+      (adolescente) => adolescente.autorizaImagem
+    ).length;
+
+    const autorizaWhatsApp = adolescentes.filter(
+      (adolescente) => adolescente.autorizaWhatsApp
+    ).length;
+
+    return {
+      total,
+      batAguas,
+      batES,
+      autorizaParticipacao,
+      autorizaImagem,
+      autorizaWhatsApp,
+    };
+  }, [adolescentes]);
 
   const cadastrosPorMes = useMemo(() => {
     const map = {};
 
-    jovens.forEach((j) => {
-      const k = monthKey(j.createdAt || j.dataCadastro);
+    adolescentes.forEach((adolescente) => {
+      const k = monthKey(adolescente.createdAt || adolescente.dataCadastro);
+
       if (!isValidMonth(k)) return;
+
       map[k] = (map[k] || 0) + 1;
     });
 
     const keys = Object.keys(map).sort();
+
     return keys.map((k) => ({
       mes: monthLabel(k),
       cadastros: map[k],
     }));
-  }, [jovens]);
+  }, [adolescentes]);
 
   const porCongregacao = useMemo(() => {
     const base = congregacoesVisiveis;
     const map = {};
 
-    base.forEach((c) => {
-      map[c] = 0;
+    base.forEach((congregacao) => {
+      map[congregacao] = 0;
     });
 
-    jovens.forEach((j) => {
-      const nome = getCongregacaoNome(j.congregacaoId);
+    adolescentes.forEach((adolescente) => {
+      const nome = getCongregacaoNome(adolescente.congregacaoId);
       map[nome] = (map[nome] || 0) + 1;
     });
 
     return base
-      .map((c) => ({ congregacao: c, total: map[c] || 0 }))
+      .map((congregacao) => ({
+        congregacao,
+        total: map[congregacao] || 0,
+      }))
       .sort((a, b) => b.total - a.total);
-  }, [jovens, congregacoesVisiveis]);
+  }, [adolescentes, congregacoesVisiveis]);
 
-  const top10Cong = useMemo(() => porCongregacao.slice(0, 10), [porCongregacao]);
+  const top10Cong = useMemo(
+    () => porCongregacao.slice(0, 10),
+    [porCongregacao]
+  );
 
   const recortes = useMemo(() => {
-    const batAguasSim = jovens.filter((j) => j.batismoAguas).length;
-    const batAguasNao = jovens.length - batAguasSim;
+    const total = adolescentes.length;
 
-    const batESSim = jovens.filter((j) => j.batismoES).length;
-    const batESNao = jovens.length - batESSim;
+    const batAguasSim = adolescentes.filter(
+      (adolescente) => adolescente.batismoAguas
+    ).length;
 
-    const comCargo = jovens.filter((j) => j.cargo).length;
-    const semCargo = jovens.length - comCargo;
+    const batESSim = adolescentes.filter(
+      (adolescente) => adolescente.batismoES
+    ).length;
 
-    return { batAguasSim, batAguasNao, batESSim, batESNao, comCargo, semCargo };
-  }, [jovens]);
+    const participacaoSim = adolescentes.filter(
+      (adolescente) => adolescente.autorizaParticipacao
+    ).length;
+
+    const imagemSim = adolescentes.filter(
+      (adolescente) => adolescente.autorizaImagem
+    ).length;
+
+    const whatsappSim = adolescentes.filter(
+      (adolescente) => adolescente.autorizaWhatsApp
+    ).length;
+
+    return {
+      batAguasSim,
+      batAguasNao: total - batAguasSim,
+
+      batESSim,
+      batESNao: total - batESSim,
+
+      participacaoSim,
+      participacaoNao: total - participacaoSim,
+
+      imagemSim,
+      imagemNao: total - imagemSim,
+
+      whatsappSim,
+      whatsappNao: total - whatsappSim,
+    };
+  }, [adolescentes]);
 
   const PRIMARY = "hsl(var(--primary))";
   const GRID = "hsl(var(--border))";
@@ -165,16 +245,42 @@ export default function Relatorios() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
           <StatCard
             icon={Building2}
             value={loading ? "..." : congregacoesVisiveis.length}
             label="Congregações"
           />
-          <StatCard icon={Users} value={loading ? "..." : totals.total} label="Total de jovens" />
-          <StatCard icon={Droplets} value={loading ? "..." : totals.batAguas} label="Batizados nas Águas" />
-          <StatCard icon={Sparkles} value={loading ? "..." : totals.batES} label="Batizados com Espírito Santo" />
-          <StatCard icon={Shield} value={loading ? "..." : totals.comCargo} label="Com cargo" />
+
+          <StatCard
+            icon={Users}
+            value={loading ? "..." : totals.total}
+            label="Total de adolescentes"
+          />
+
+          <StatCard
+            icon={Droplets}
+            value={loading ? "..." : totals.batAguas}
+            label="Batizados nas Águas"
+          />
+
+          <StatCard
+            icon={Sparkles}
+            value={loading ? "..." : totals.batES}
+            label="Batizados com Espírito Santo"
+          />
+
+          <StatCard
+            icon={CheckCircle2}
+            value={loading ? "..." : totals.autorizaParticipacao}
+            label="Participação autorizada"
+          />
+
+          <StatCard
+            icon={ImageIcon}
+            value={loading ? "..." : totals.autorizaImagem}
+            label="Imagem autorizada"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -184,6 +290,7 @@ export default function Relatorios() {
                 <h3 className="font-heading font-semibold text-foreground">
                   Evolução de cadastros por mês
                 </h3>
+
                 <p className="text-sm text-muted-foreground mt-1">
                   Acompanhe a variação de registros ao longo do tempo.
                 </p>
@@ -205,7 +312,10 @@ export default function Relatorios() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={cadastrosPorMes} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+                  <LineChart
+                    data={cadastrosPorMes}
+                    margin={{ top: 10, right: 12, bottom: 0, left: 0 }}
+                  >
                     <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
                     <XAxis dataKey="mes" tick={{ fill: MUTED, fontSize: 12 }} />
                     <YAxis allowDecimals={false} tick={{ fill: MUTED, fontSize: 12 }} />
@@ -215,7 +325,12 @@ export default function Relatorios() {
                       dataKey="cadastros"
                       stroke={PRIMARY}
                       strokeWidth={3}
-                      dot={{ r: 3, stroke: PRIMARY, strokeWidth: 2, fill: "hsl(var(--card))" }}
+                      dot={{
+                        r: 3,
+                        stroke: PRIMARY,
+                        strokeWidth: 2,
+                        fill: "hsl(var(--card))",
+                      }}
                       activeDot={{ r: 5 }}
                     />
                   </LineChart>
@@ -230,10 +345,11 @@ export default function Relatorios() {
                 <h3 className="font-heading font-semibold text-foreground">
                   Ranking por congregação
                 </h3>
+
                 <p className="text-sm text-muted-foreground mt-1">
                   {isLimited
                     ? "Distribuição da sua congregação."
-                    : "Distribuição de cadastros entre as congregações (Top 10)."}
+                    : "Distribuição de cadastros entre as congregações, Top 10."}
                 </p>
               </div>
 
@@ -252,14 +368,19 @@ export default function Relatorios() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={top10Cong} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+                  <BarChart
+                    data={top10Cong}
+                    margin={{ top: 10, right: 12, bottom: 0, left: 0 }}
+                  >
                     <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
                     <XAxis dataKey="congregacao" hide />
                     <YAxis allowDecimals={false} tick={{ fill: MUTED, fontSize: 12 }} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
+
                         const row = payload[0].payload;
+
                         return (
                           <CustomTooltip
                             active={active}
@@ -284,48 +405,60 @@ export default function Relatorios() {
 
         <Card>
           <h3 className="font-heading font-semibold text-foreground mb-4">
-            Indicadores (resumo)
+            Indicadores, resumo
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground mb-2">Batismo nas Águas</p>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Sim</span>
-                <span className="text-foreground font-semibold tabular-nums">{recortes.batAguasSim}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Não</span>
-                <span className="text-foreground font-semibold tabular-nums">{recortes.batAguasNao}</span>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <ResumoItem
+              title="Batismo nas Águas"
+              sim={recortes.batAguasSim}
+              nao={recortes.batAguasNao}
+            />
 
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground mb-2">Batismo com Espírito Santo</p>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Sim</span>
-                <span className="text-foreground font-semibold tabular-nums">{recortes.batESSim}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Não</span>
-                <span className="text-foreground font-semibold tabular-nums">{recortes.batESNao}</span>
-              </div>
-            </div>
+            <ResumoItem
+              title="Batismo com Espírito Santo"
+              sim={recortes.batESSim}
+              nao={recortes.batESNao}
+            />
 
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-sm font-semibold text-foreground mb-2">Cargo eclesiástico</p>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Com cargo</span>
-                <span className="text-foreground font-semibold tabular-nums">{recortes.comCargo}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Sem cargo</span>
-                <span className="text-foreground font-semibold tabular-nums">{recortes.semCargo}</span>
-              </div>
-            </div>
+            <ResumoItem
+              title="Participação nas atividades"
+              sim={recortes.participacaoSim}
+              nao={recortes.participacaoNao}
+            />
+
+            <ResumoItem
+              title="Uso de imagem"
+              sim={recortes.imagemSim}
+              nao={recortes.imagemNao}
+            />
+
+            <ResumoItem
+              title="Contato por WhatsApp"
+              sim={recortes.whatsappSim}
+              nao={recortes.whatsappNao}
+            />
           </div>
         </Card>
       </div>
     </AdminLayout>
+  );
+}
+
+function ResumoItem({ title, sim, nao }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <p className="text-sm font-semibold text-foreground mb-2">{title}</p>
+
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Sim</span>
+        <span className="text-foreground font-semibold tabular-nums">{sim}</span>
+      </div>
+
+      <div className="mt-1 flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Não</span>
+        <span className="text-foreground font-semibold tabular-nums">{nao}</span>
+      </div>
+    </div>
   );
 }

@@ -4,15 +4,17 @@ import AdminLayout from "../../components/AdminLayout";
 import StatCard from "../../components/StatCard";
 import Card from "../../components/Card";
 import Table from "../../components/Table";
-import { listJovens } from "../../lib/jovensApi";
+import { listAdolescentes } from "../../lib/adolescentesApi.js";
 import {
   Users,
   Droplets,
   Sparkles,
-  Shield,
   RefreshCcw,
   CalendarDays,
   ArrowRight,
+  CheckCircle2,
+  ImageIcon,
+  MessageCircle,
 } from "lucide-react";
 import {
   congregacoes,
@@ -36,6 +38,7 @@ function calcAge(nascimento) {
   const m = today.getMonth() - birth.getMonth();
 
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+
   return age;
 }
 
@@ -51,10 +54,29 @@ function formatTodayPtBR() {
   }
 }
 
+function booleanLabel(value) {
+  return value ? "Sim" : "Não";
+}
+
+function formatPhone(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (digits.length === 11) {
+    return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  }
+
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  }
+
+  return value || "-";
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [jovens, setJovens] = useState([]);
+
+  const [adolescentes, setAdolescentes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const canViewAll = hasPermission(user, Perms.VIEW_ALL);
@@ -65,17 +87,22 @@ export default function Dashboard() {
       const ids = Array.isArray(user?.congregacaoIds) ? user.congregacaoIds : [];
       return ids.map((id) => getCongregacaoNome(id)).filter(Boolean);
     }
+
     return congregacoes;
   }, [isLimited, user]);
 
   async function loadData() {
     try {
       setLoading(true);
-      const data = await listJovens();
-      setJovens(Array.isArray(data?.jovens) ? data.jovens : []);
+
+      const data = await listAdolescentes();
+
+      setAdolescentes(
+        Array.isArray(data?.adolescentes) ? data.adolescentes : []
+      );
     } catch (err) {
       toast.error(err?.message || "Erro ao carregar dashboard");
-      setJovens([]);
+      setAdolescentes([]);
     } finally {
       setLoading(false);
     }
@@ -85,15 +112,34 @@ export default function Dashboard() {
     loadData();
   }, []);
 
-  const total = jovens.length;
-  const batAguas = jovens.filter((j) => j.batismoAguas).length;
-  const batES = jovens.filter((j) => j.batismoES).length;
-  const comCargo = jovens.filter((j) => j.cargo).length;
+  const total = adolescentes.length;
+
+  const batAguas = adolescentes.filter(
+    (adolescente) => adolescente.batismoAguas
+  ).length;
+
+  const batES = adolescentes.filter(
+    (adolescente) => adolescente.batismoES
+  ).length;
+
+  const autorizaParticipacao = adolescentes.filter(
+    (adolescente) => adolescente.autorizaParticipacao
+  ).length;
+
+  const autorizaImagem = adolescentes.filter(
+    (adolescente) => adolescente.autorizaImagem
+  ).length;
+
+  const autorizaWhatsApp = adolescentes.filter(
+    (adolescente) => adolescente.autorizaWhatsApp
+  ).length;
 
   const congDist = {};
-  jovens.forEach((j) => {
-    const label = getCongregacaoNome(j.congregacaoId);
+
+  adolescentes.forEach((adolescente) => {
+    const label = getCongregacaoNome(adolescente.congregacaoId);
     const key = formatCongregacao(label);
+
     congDist[key] = (congDist[key] || 0) + 1;
   });
 
@@ -107,18 +153,23 @@ export default function Dashboard() {
     congDist[key] || 0,
   ]);
 
-  const ageRanges = { "16-18": 0, "19-22": 0, "23-25": 0, "26+": 0 };
+  const ageRanges = {
+    "Até 12": 0,
+    "13-14": 0,
+    "15-16": 0,
+  };
 
-  jovens.forEach((j) => {
-    const age = calcAge(j.nascimento);
+  adolescentes.forEach((adolescente) => {
+    const age = calcAge(adolescente.nascimento);
+
     if (age <= 0) return;
-    if (age <= 18) ageRanges["16-18"]++;
-    else if (age <= 22) ageRanges["19-22"]++;
-    else if (age <= 25) ageRanges["23-25"]++;
-    else ageRanges["26+"]++;
+
+    if (age <= 12) ageRanges["Até 12"]++;
+    else if (age <= 14) ageRanges["13-14"]++;
+    else if (age <= 16) ageRanges["15-16"]++;
   });
 
-  const recent = [...jovens]
+  const recent = [...adolescentes]
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 5);
 
@@ -127,32 +178,54 @@ export default function Dashboard() {
     {
       key: "congregacaoId",
       label: "Congregação",
-      render: (v) => getCongregacaoNome(v),
+      render: (value) => getCongregacaoNome(value),
+    },
+    {
+      key: "responsavelNome",
+      label: "Responsável",
+      render: (value, row) => {
+        const nome = value || "-";
+        const parentesco = row.responsavelParentesco
+          ? ` (${row.responsavelParentesco})`
+          : "";
+
+        return `${nome}${parentesco}`;
+      },
+    },
+    {
+      key: "responsavelTelefone",
+      label: "Tel. Resp.",
+      render: (value) => formatPhone(value),
     },
     {
       key: "createdAt",
       label: "Data",
-      render: (v) => (v ? new Date(v).toLocaleDateString("pt-BR") : ""),
+      render: (value) =>
+        value ? new Date(value).toLocaleDateString("pt-BR") : "",
     },
   ];
 
   const todayLabel = useMemo(() => formatTodayPtBR(), []);
+
   const topCongEntries = useMemo(() => {
-    return [...congEntries].sort((a, b) => (b[1] || 0) - (a[1] || 0)).slice(0, 8);
+    return [...congEntries]
+      .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+      .slice(0, 8);
   }, [congEntries]);
 
   const avgAge = useMemo(() => {
     if (!total) return 0;
 
-    const validAges = jovens
-      .map((j) => calcAge(j.nascimento))
+    const validAges = adolescentes
+      .map((adolescente) => calcAge(adolescente.nascimento))
       .filter((age) => age > 0);
 
     if (!validAges.length) return 0;
 
     const sum = validAges.reduce((acc, age) => acc + age, 0);
+
     return Math.round(sum / validAges.length);
-  }, [jovens, total]);
+  }, [adolescentes, total]);
 
   const congregacaoTitulo = isLimited
     ? congregacoesVisiveis.join(", ") || "Sua congregação"
@@ -165,10 +238,11 @@ export default function Dashboard() {
           <h2 className="text-xl md:text-2xl font-heading font-semibold text-foreground leading-tight">
             Painel Administrativo
           </h2>
+
           <p className="text-sm text-muted-foreground">
             {isLimited
               ? `Resumo geral de ${congregacaoTitulo}`
-              : "Resumo geral e indicadores da UMADRUR"}
+              : "Resumo geral e indicadores do Geração Teen"}
           </p>
         </div>
 
@@ -190,11 +264,42 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
-        <StatCard icon={Users} value={loading ? "..." : total} label="Total de Jovens" />
-        <StatCard icon={Droplets} value={loading ? "..." : batAguas} label="Batizados nas Águas" />
-        <StatCard icon={Sparkles} value={loading ? "..." : batES} label="Batizados com Espírito Santo" />
-        <StatCard icon={Shield} value={loading ? "..." : comCargo} label="Jovens com Cargo" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4 mb-4 md:mb-6">
+        <StatCard
+          icon={Users}
+          value={loading ? "..." : total}
+          label="Total de Adolescentes"
+        />
+
+        <StatCard
+          icon={Droplets}
+          value={loading ? "..." : batAguas}
+          label="Batizados nas Águas"
+        />
+
+        <StatCard
+          icon={Sparkles}
+          value={loading ? "..." : batES}
+          label="Batizados com Espírito Santo"
+        />
+
+        <StatCard
+          icon={CheckCircle2}
+          value={loading ? "..." : autorizaParticipacao}
+          label="Participação autorizada"
+        />
+
+        <StatCard
+          icon={ImageIcon}
+          value={loading ? "..." : autorizaImagem}
+          label="Imagem autorizada"
+        />
+
+        <StatCard
+          icon={MessageCircle}
+          value={loading ? "..." : autorizaWhatsApp}
+          label="WhatsApp autorizado"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-4 md:mb-6">
@@ -204,8 +309,11 @@ export default function Dashboard() {
               <h3 className="font-heading font-semibold text-foreground text-base">
                 Distribuição por Congregação
               </h3>
+
               <p className="text-xs text-muted-foreground">
-                {isLimited ? "Sua congregação" : "Top 8 congregações por quantidade"}
+                {isLimited
+                  ? "Sua congregação"
+                  : "Top 8 congregações por quantidade"}
               </p>
             </div>
 
@@ -226,7 +334,9 @@ export default function Dashboard() {
               <div key={name} className="group">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-foreground truncate pr-2">{name}</span>
-                  <span className="text-muted-foreground tabular-nums">{count}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {count}
+                  </span>
                 </div>
 
                 <div className="w-full bg-surface-2 rounded-full h-2 overflow-hidden">
@@ -240,33 +350,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-
-          {!isLimited && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="text-xs text-muted-foreground mb-2">
-                Lista completa (rolagem interna)
-              </div>
-              <div className="max-h-[220px] overflow-y-auto pr-2 space-y-3">
-                {congEntries.map(([name, count]) => (
-                  <div key={`${name}-all`} className="group">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-foreground truncate pr-2">{name}</span>
-                      <span className="text-muted-foreground tabular-nums">{count}</span>
-                    </div>
-
-                    <div className="w-full bg-surface-2 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-primary rounded-full h-2 transition-all group-hover:opacity-95"
-                        style={{
-                          width: total > 0 ? `${(count / total) * 100}%` : "0%",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </Card>
 
         <Card className="min-h-[320px]">
@@ -275,8 +358,9 @@ export default function Dashboard() {
               <h3 className="font-heading font-semibold text-foreground text-base">
                 Faixa Etária
               </h3>
+
               <p className="text-xs text-muted-foreground">
-                Distribuição por idade (base: {loading ? "..." : total} registros)
+                Distribuição por idade, base: {loading ? "..." : total} registros
               </p>
             </div>
           </div>
@@ -286,7 +370,9 @@ export default function Dashboard() {
               <div key={range} className="group">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-foreground">{range} anos</span>
-                  <span className="font-medium text-foreground tabular-nums">{count}</span>
+                  <span className="font-medium text-foreground tabular-nums">
+                    {count}
+                  </span>
                 </div>
 
                 <div className="w-full bg-surface-2 rounded-full h-2 overflow-hidden">
@@ -303,7 +389,10 @@ export default function Dashboard() {
 
           <div className="mt-4 pt-4 border-t border-border">
             <div className="rounded-xl bg-surface-2/60 border border-border px-3 py-2">
-              <div className="text-xs text-muted-foreground">Média (aprox.)</div>
+              <div className="text-xs text-muted-foreground">
+                Média aproximada
+              </div>
+
               <div className="text-base font-heading font-semibold text-foreground tabular-nums">
                 {loading ? "..." : `${avgAge} anos`}
               </div>
@@ -318,14 +407,17 @@ export default function Dashboard() {
             <h3 className="font-heading font-semibold text-foreground text-base">
               Últimos Cadastros
             </h3>
-            <p className="text-xs text-muted-foreground">Exibindo os 5 mais recentes</p>
+
+            <p className="text-xs text-muted-foreground">
+              Exibindo os 5 mais recentes
+            </p>
           </div>
 
           <button
             type="button"
             className="inline-flex items-center gap-1 text-sm text-primary hover:opacity-80 transition-opacity"
             title="Ver todos"
-            onClick={() => navigate("/admin/jovens")}
+            onClick={() => navigate("/admin/adolescentes")}
           >
             Ver todos <ArrowRight size={16} />
           </button>
@@ -333,7 +425,7 @@ export default function Dashboard() {
 
         <div className="-mx-2 sm:mx-0">
           <div className="overflow-x-auto px-2 sm:px-0">
-            <div className="min-w-[620px]">
+            <div className="min-w-[900px]">
               <Table columns={recentColumns} data={recent} />
             </div>
           </div>

@@ -9,14 +9,30 @@ import Footer from "../components/Footer";
 import { maskCPF, maskPhone, maskCEP, unmask } from "../lib/masks";
 import { validateCPF } from "../lib/cpf";
 import { fetchAddress } from "../lib/viacep";
-import { createJovem } from "../lib/jovensApi";
+import { createAdolescente } from "../lib/adolescentesApi";
 import { toast } from "sonner";
 import { congregacoes } from "../lib/congregacoes";
 
 import bgImg from "../assets/bg-visitors.png";
 
-const cargosMasc = ["Auxiliar", "Diácono", "Presbítero", "Evangelista", "Pastor"];
-const cargosFem = ["Auxiliar", "Diaconisa", "Evangelista", "Missionária"];
+const UMADRUR_CADASTRO_URL =
+  import.meta.env.VITE_UMADRUR_CADASTRO_URL ||
+  "https://cadastroumadrur.adbrr.com.br";
+
+const parentescoOptions = [
+  { value: "Mãe", label: "Mãe" },
+  { value: "Pai", label: "Pai" },
+  { value: "Avó", label: "Avó" },
+  { value: "Avô", label: "Avô" },
+  { value: "Tia", label: "Tia" },
+  { value: "Tio", label: "Tio" },
+  { value: "Irmã maior de idade", label: "Irmã maior de idade" },
+  { value: "Irmão maior de idade", label: "Irmão maior de idade" },
+  { value: "Tutor legal", label: "Tutor legal" },
+  { value: "Guardião", label: "Guardião" },
+  { value: "Dirigente responsável", label: "Dirigente responsável" },
+  { value: "Outro", label: "Outro" },
+];
 
 const initialForm = {
   congregacao: "",
@@ -25,6 +41,16 @@ const initialForm = {
   sexo: "",
   cpf: "",
   telefone: "",
+
+  nomeMae: "",
+  telefoneMae: "",
+  nomePai: "",
+  telefonePai: "",
+
+  responsavelNome: "",
+  responsavelParentesco: "",
+  responsavelTelefone: "",
+
   cep: "",
   logradouro: "",
   numero: "",
@@ -32,11 +58,16 @@ const initialForm = {
   bairro: "",
   cidade: "",
   uf: "",
+
   batismoAguas: "",
   batismoES: "",
-  possuiCargo: "",
-  cargo: "",
-  lgpd: false,
+
+  autorizaParticipacao: "",
+  autorizaImagem: "",
+  autorizaWhatsApp: "",
+  observacoesResponsavel: "",
+
+  lgpdResponsavel: false,
 };
 
 function maskDate(value = "") {
@@ -44,6 +75,7 @@ function maskDate(value = "") {
 
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
@@ -55,6 +87,32 @@ function parseDateToISO(value = "") {
 
   const [, dd, mm, yyyy] = match;
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function calcularIdadePtBR(value = "") {
+  const iso = parseDateToISO(value);
+
+  if (!iso) return null;
+
+  const [year, month, day] = iso.split("-").map(Number);
+  const birth = new Date(year, month - 1, day);
+
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+
+  let idade = today.getFullYear() - birth.getFullYear();
+
+  const aindaNaoFezAniversario =
+    today.getMonth() < birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() &&
+      today.getDate() < birth.getDate());
+
+  if (aindaNaoFezAniversario) {
+    idade -= 1;
+  }
+
+  return idade;
 }
 
 function formatPersonName(value = "") {
@@ -81,6 +139,17 @@ function formatPersonName(value = "") {
     .join(" ");
 }
 
+function isValidPhoneOptional(value) {
+  const digits = unmask(value);
+  if (!digits) return true;
+  return digits.length === 10 || digits.length === 11;
+}
+
+function isValidPhoneRequired(value) {
+  const digits = unmask(value);
+  return digits.length === 10 || digits.length === 11;
+}
+
 export default function Cadastro() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -88,20 +157,28 @@ export default function Cadastro() {
   const [loadingCEP, setLoadingCEP] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const idade = useMemo(() => calcularIdadePtBR(form.nascimento), [form.nascimento]);
+  const deveIrParaUmadrur = idade !== null && idade >= 17;
+
   const set = (field, value) => {
-    setForm((p) => ({ ...p, [field]: value }));
-    if (errors[field]) setErrors((p) => ({ ...p, [field]: "" }));
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
   };
 
   useEffect(() => {
     const cep = unmask(form.cep);
+
     if (cep.length === 8) {
       setLoadingCEP(true);
+
       fetchAddress(cep)
         .then((data) => {
           if (data) {
-            setForm((p) => ({
-              ...p,
+            setForm((prev) => ({
+              ...prev,
               logradouro: data.logradouro || "",
               bairro: data.bairro || "",
               cidade: data.cidade || "",
@@ -123,18 +200,67 @@ export default function Cadastro() {
       e.nascimento = "Informe a data no formato dd/mm/aaaa";
     }
 
+    if (deveIrParaUmadrur) {
+      e.nascimento =
+        "Pessoas com 17 anos ou mais devem realizar o cadastro pela UMADRUR";
+    }
+
     if (!form.sexo) e.sexo = "Selecione o sexo";
     if (!validateCPF(unmask(form.cpf))) e.cpf = "CPF inválido";
-    if (unmask(form.telefone).length < 10) e.telefone = "Telefone inválido";
+    if (!isValidPhoneRequired(form.telefone)) e.telefone = "Telefone inválido";
+
+    if (form.nomeMae.trim() && !isValidPhoneOptional(form.telefoneMae)) {
+      e.telefoneMae = "Telefone da mãe inválido";
+    }
+
+    if (unmask(form.telefoneMae) && !form.nomeMae.trim()) {
+      e.nomeMae = "Informe o nome da mãe ou remova o telefone";
+    }
+
+    if (form.nomePai.trim() && !isValidPhoneOptional(form.telefonePai)) {
+      e.telefonePai = "Telefone do pai inválido";
+    }
+
+    if (unmask(form.telefonePai) && !form.nomePai.trim()) {
+      e.nomePai = "Informe o nome do pai ou remova o telefone";
+    }
+
+    if (!form.responsavelNome.trim()) {
+      e.responsavelNome = "Informe o nome do responsável";
+    }
+
+    if (!form.responsavelParentesco) {
+      e.responsavelParentesco = "Selecione o parentesco ou vínculo";
+    }
+
+    if (!isValidPhoneRequired(form.responsavelTelefone)) {
+      e.responsavelTelefone = "Telefone do responsável inválido";
+    }
+
     if (unmask(form.cep).length !== 8) e.cep = "CEP inválido";
     if (!form.numero.trim()) e.numero = "Informe o número";
+
     if (!form.batismoAguas) e.batismoAguas = "Selecione uma opção";
     if (!form.batismoES) e.batismoES = "Selecione uma opção";
-    if (!form.possuiCargo) e.possuiCargo = "Selecione uma opção";
-    if (form.possuiCargo === "Sim" && !form.cargo) e.cargo = "Selecione o cargo";
-    if (!form.lgpd) e.lgpd = "Aceite a Política de Privacidade";
+
+    if (!form.autorizaParticipacao) {
+      e.autorizaParticipacao = "Selecione uma opção";
+    }
+
+    if (!form.autorizaImagem) {
+      e.autorizaImagem = "Selecione uma opção";
+    }
+
+    if (!form.autorizaWhatsApp) {
+      e.autorizaWhatsApp = "Selecione uma opção";
+    }
+
+    if (!form.lgpdResponsavel) {
+      e.lgpdResponsavel = "O responsável precisa aceitar a Política de Privacidade";
+    }
 
     setErrors(e);
+
     return Object.keys(e).length === 0;
   };
 
@@ -156,6 +282,16 @@ export default function Cadastro() {
         sexo: form.sexo,
         cpf: unmask(form.cpf),
         telefone: unmask(form.telefone),
+
+        nomeMae: form.nomeMae ? formatPersonName(form.nomeMae) : "",
+        telefoneMae: unmask(form.telefoneMae),
+        nomePai: form.nomePai ? formatPersonName(form.nomePai) : "",
+        telefonePai: unmask(form.telefonePai),
+
+        responsavelNome: formatPersonName(form.responsavelNome),
+        responsavelParentesco: form.responsavelParentesco,
+        responsavelTelefone: unmask(form.responsavelTelefone),
+
         cep: unmask(form.cep),
         logradouro: form.logradouro?.trim() || "",
         numero: form.numero.trim(),
@@ -163,35 +299,33 @@ export default function Cadastro() {
         bairro: form.bairro?.trim() || "",
         cidade: form.cidade?.trim() || "",
         uf: form.uf?.trim() || "",
+
         batismoAguas: form.batismoAguas === "Sim",
         batismoES: form.batismoES === "Sim",
-        possuiCargo: form.possuiCargo === "Sim",
-        cargo: form.possuiCargo === "Sim" ? form.cargo : "",
-        lgpd: form.lgpd,
+
+        autorizaParticipacao: form.autorizaParticipacao === "Sim",
+        autorizaImagem: form.autorizaImagem === "Sim",
+        autorizaWhatsApp: form.autorizaWhatsApp === "Sim",
+        observacoesResponsavel: form.observacoesResponsavel?.trim() || "",
+
+        lgpdResponsavel: form.lgpdResponsavel,
       };
 
-      await createJovem(payload);
+      await createAdolescente(payload);
 
-      toast.success("Jovem cadastrado com sucesso!");
+      toast.success("Adolescente cadastrado com sucesso!");
       setForm(initialForm);
       setErrors({});
     } catch (err) {
-      toast.error(err?.message || "Erro ao cadastrar jovem");
+      toast.error(err?.message || "Erro ao cadastrar adolescente");
     } finally {
       setSaving(false);
     }
   };
 
-  const cargos = form.sexo === "Feminino" ? cargosFem : cargosMasc;
-
   const congOptions = useMemo(
     () => congregacoes.map((c) => ({ value: c, label: c })),
     []
-  );
-
-  const cargoOptions = useMemo(
-    () => cargos.map((c) => ({ value: c, label: c })),
-    [cargos]
   );
 
   const sexoOptions = useMemo(
@@ -220,15 +354,15 @@ export default function Cadastro() {
       <div className="w-full max-w-[640px]">
         <Card className="w-full bg-card/92 border border-white/18 shadow-[0_18px_50px_rgba(0,0,0,0.16)] rounded-3xl">
           <form onSubmit={handleSubmit} className="space-y-2">
-            <div className="flex justify-center pt-0 -mt-1">
+            <div className="flex justify-center pt-0">
               <Logo size="cadastro" />
             </div>
 
-            <h1 className="text-base md:text-lg font-heading font-semibold text-foreground text-center -mt-2">
-              Formulário de Cadastro
+            <h1 className="text-base md:text-lg font-heading font-semibold text-foreground text-center mt-1">
+              Formulário de Cadastro Geração Teen
             </h1>
 
-            <SectionTitle>Dados Pessoais</SectionTitle>
+            <SectionTitle>Dados do Adolescente</SectionTitle>
 
             <SelectField
               label="Congregação"
@@ -244,9 +378,10 @@ export default function Cadastro() {
                 label="Nome completo"
                 value={form.nome}
                 onChange={(v) => set("nome", v)}
-onBlur={() => set("nome", formatPersonName(form.nome))}
+                onBlur={() => set("nome", formatPersonName(form.nome))}
                 error={errors.nome}
               />
+
               <Input
                 label="Nascimento"
                 type="text"
@@ -257,19 +392,44 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
                 maxLength={10}
                 inputMode="numeric"
               />
+
               <SelectField
                 label="Sexo"
                 options={sexoOptions}
                 value={sexoOptions.find((o) => o.value === form.sexo) || null}
-                onChange={(opt) => {
-                  const v = opt?.value || "";
-                  set("sexo", v);
-                  set("cargo", "");
-                }}
+                onChange={(opt) => set("sexo", opt?.value || "")}
                 error={errors.sexo}
                 placeholder="Selecione..."
               />
             </div>
+
+            {idade !== null && idade >= 0 && (
+              <div className="rounded-xl border border-border bg-surface-2/60 px-3 py-2 text-sm text-foreground">
+                Idade calculada: <strong>{idade} anos</strong>
+              </div>
+            )}
+
+            {deveIrParaUmadrur && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="font-semibold">
+                  Cadastro direcionado para a UMADRUR
+                </p>
+                <p className="mt-1">
+                  O Geração Teen é destinado aos adolescentes menores de 17 anos.
+                  Como a idade informada é de 17 anos ou mais, o cadastro deve
+                  ser feito no sistema da UMADRUR.
+                </p>
+
+                <a
+                  href={UMADRUR_CADASTRO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex rounded-lg bg-amber-700 px-4 py-2 text-white hover:opacity-90 transition"
+                >
+                  Ir para o cadastro da UMADRUR
+                </a>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <Input
@@ -281,11 +441,91 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
                 maxLength={14}
                 inputMode="numeric"
               />
+
               <Input
-                label="Telefone"
+                label="Telefone do adolescente"
                 value={form.telefone}
                 onChange={(v) => set("telefone", maskPhone(v))}
                 error={errors.telefone}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                inputMode="tel"
+              />
+            </div>
+
+            <SectionTitle>Informações dos Pais ou Responsável</SectionTitle>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Input
+                label="Nome da mãe, se houver"
+                value={form.nomeMae}
+                onChange={(v) => set("nomeMae", v)}
+                onBlur={() => set("nomeMae", formatPersonName(form.nomeMae))}
+                error={errors.nomeMae}
+              />
+
+              <Input
+                label="Telefone da mãe"
+                value={form.telefoneMae}
+                onChange={(v) => set("telefoneMae", maskPhone(v))}
+                error={errors.telefoneMae}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                inputMode="tel"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Input
+                label="Nome do pai, se houver"
+                value={form.nomePai}
+                onChange={(v) => set("nomePai", v)}
+                onBlur={() => set("nomePai", formatPersonName(form.nomePai))}
+                error={errors.nomePai}
+              />
+
+              <Input
+                label="Telefone do pai"
+                value={form.telefonePai}
+                onChange={(v) => set("telefonePai", maskPhone(v))}
+                error={errors.telefonePai}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                inputMode="tel"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <Input
+                label="Responsável principal"
+                value={form.responsavelNome}
+                onChange={(v) => set("responsavelNome", v)}
+                onBlur={() =>
+                  set("responsavelNome", formatPersonName(form.responsavelNome))
+                }
+                error={errors.responsavelNome}
+              />
+
+              <SelectField
+                label="Parentesco ou vínculo"
+                options={parentescoOptions}
+                value={
+                  parentescoOptions.find(
+                    (o) => o.value === form.responsavelParentesco
+                  ) || null
+                }
+                onChange={(opt) =>
+                  set("responsavelParentesco", opt?.value || "")
+                }
+                error={errors.responsavelParentesco}
+                placeholder="Selecione..."
+              />
+
+              <Input
+                label="Telefone do responsável"
+                value={form.responsavelTelefone}
+                onChange={(v) => set("responsavelTelefone", maskPhone(v))}
+                error={errors.responsavelTelefone}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
                 inputMode="tel"
@@ -304,6 +544,7 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
                 maxLength={9}
                 inputMode="numeric"
               />
+
               <Input label="Cidade" value={form.cidade} readOnly />
               <Input label="UF" value={form.uf} readOnly />
             </div>
@@ -324,11 +565,13 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
                 error={errors.numero}
                 inputMode="numeric"
               />
+
               <Input
                 label="Complemento"
                 value={form.complemento}
                 onChange={(v) => set("complemento", v)}
               />
+
               <Input label="Bairro" value={form.bairro} readOnly />
             </div>
 
@@ -338,61 +581,96 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
               <SelectField
                 label="Batizado nas águas?"
                 options={simNaoOptions}
-                value={simNaoOptions.find((o) => o.value === form.batismoAguas) || null}
+                value={
+                  simNaoOptions.find((o) => o.value === form.batismoAguas) ||
+                  null
+                }
                 onChange={(opt) => set("batismoAguas", opt?.value || "")}
                 error={errors.batismoAguas}
                 placeholder="Selecione..."
               />
+
               <SelectField
                 label="Batizado com Espírito Santo?"
                 options={simNaoOptions}
-                value={simNaoOptions.find((o) => o.value === form.batismoES) || null}
+                value={
+                  simNaoOptions.find((o) => o.value === form.batismoES) || null
+                }
                 onChange={(opt) => set("batismoES", opt?.value || "")}
                 error={errors.batismoES}
                 placeholder="Selecione..."
               />
             </div>
 
-            <SectionTitle>Cargo Eclesiástico</SectionTitle>
+            <SectionTitle>Autorizações do Responsável</SectionTitle>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <SelectField
-                label="Possui cargo eclesiástico?"
+                label="Autoriza participação?"
                 options={simNaoOptions}
-                value={simNaoOptions.find((o) => o.value === form.possuiCargo) || null}
-                onChange={(opt) => {
-                  const v = opt?.value || "";
-                  set("possuiCargo", v);
-                  if (v !== "Sim") set("cargo", "");
-                }}
-                error={errors.possuiCargo}
+                value={
+                  simNaoOptions.find(
+                    (o) => o.value === form.autorizaParticipacao
+                  ) || null
+                }
+                onChange={(opt) =>
+                  set("autorizaParticipacao", opt?.value || "")
+                }
+                error={errors.autorizaParticipacao}
                 placeholder="Selecione..."
               />
 
-              {form.possuiCargo === "Sim" ? (
-                <SelectField
-                  label="Cargo"
-                  options={cargoOptions}
-                  value={cargoOptions.find((o) => o.value === form.cargo) || null}
-                  onChange={(opt) => set("cargo", opt?.value || "")}
-                  error={errors.cargo}
-                  placeholder="Selecione..."
-                />
-              ) : (
-                <div className="hidden md:block" />
-              )}
+              <SelectField
+                label="Autoriza uso de imagem?"
+                options={simNaoOptions}
+                value={
+                  simNaoOptions.find((o) => o.value === form.autorizaImagem) ||
+                  null
+                }
+                onChange={(opt) => set("autorizaImagem", opt?.value || "")}
+                error={errors.autorizaImagem}
+                placeholder="Selecione..."
+              />
+
+              <SelectField
+                label="Autoriza contato por WhatsApp?"
+                options={simNaoOptions}
+                value={
+                  simNaoOptions.find(
+                    (o) => o.value === form.autorizaWhatsApp
+                  ) || null
+                }
+                onChange={(opt) => set("autorizaWhatsApp", opt?.value || "")}
+                error={errors.autorizaWhatsApp}
+                placeholder="Selecione..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Observações do responsável
+              </label>
+              <textarea
+                value={form.observacoesResponsavel}
+                onChange={(e) => set("observacoesResponsavel", e.target.value)}
+                placeholder="Campo opcional para observações importantes do responsável."
+                maxLength={500}
+                className="input-field min-h-[90px] resize-y"
+              />
             </div>
 
             <div className="rounded-xl border border-border bg-surface-2/60 p-2.5">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={form.lgpd}
-                  onChange={(e) => set("lgpd", e.target.checked)}
+                  checked={form.lgpdResponsavel}
+                  onChange={(e) => set("lgpdResponsavel", e.target.checked)}
                   className="mt-0.5 w-4 h-4 rounded accent-primary flex-shrink-0"
                 />
+
                 <span className="text-sm text-foreground leading-relaxed">
-                  Declaro que li e concordo com a{" "}
+                  Declaro que sou o responsável pelo adolescente ou que possuo
+                  autorização para realizar este cadastro, li e concordo com a{" "}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -403,12 +681,14 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
                   >
                     Política de Privacidade
                   </button>{" "}
-                  e autorizo o uso dos meus dados conforme a LGPD.
+                  e autorizo o tratamento dos dados conforme a LGPD.
                 </span>
               </label>
 
-              {errors.lgpd && (
-                <p className="text-sm text-destructive mt-2">{errors.lgpd}</p>
+              {errors.lgpdResponsavel && (
+                <p className="text-sm text-destructive mt-2">
+                  {errors.lgpdResponsavel}
+                </p>
               )}
             </div>
 
@@ -424,7 +704,8 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving}>
+
+              <Button type="submit" disabled={saving || deveIrParaUmadrur}>
                 {saving ? "Cadastrando..." : "Cadastrar"}
               </Button>
             </div>
@@ -438,35 +719,64 @@ onBlur={() => set("nome", formatPersonName(form.nome))}
             title="Política de Privacidade"
           >
             <div className="text-sm text-foreground space-y-4 leading-relaxed">
-              <p><strong>1. Coleta de Dados</strong></p>
               <p>
-                Coletamos apenas os dados necessários para o cadastro de membros da UMADRUR,
-                incluindo nome, CPF, telefone, endereço, informações de batismo e cargo eclesiástico.
+                <strong>1. Coleta de Dados</strong>
               </p>
-              <p><strong>2. Finalidade</strong></p>
               <p>
-                Os dados coletados são utilizados exclusivamente para gestão interna da união de
-                mocidades, organização de eventos e comunicação com os membros.
+                Coletamos apenas os dados necessários para o cadastro de
+                adolescentes do Geração Teen, incluindo dados pessoais,
+                endereço, dados opcionais de pai e mãe, dados do responsável,
+                autorizações e informações de batismo.
               </p>
-              <p><strong>3. Compartilhamento</strong></p>
+
               <p>
-                Seus dados não serão compartilhados com terceiros, exceto quando exigido por lei ou
-                autorização expressa do titular.
+                <strong>2. Finalidade</strong>
               </p>
-              <p><strong>4. Armazenamento e Segurança</strong></p>
               <p>
-                Os dados são armazenados de forma segura com acesso restrito apenas a líderes
-                autorizados da UMADRUR.
+                Os dados coletados são utilizados exclusivamente para gestão
+                interna do Geração Teen, organização de atividades, eventos e
+                comunicação com os participantes e responsáveis.
               </p>
-              <p><strong>5. Direitos do Titular</strong></p>
+
               <p>
-                Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento
-                entrando em contato com a liderança da sua congregação.
+                <strong>3. Autorizações</strong>
               </p>
-              <p><strong>6. Base Legal</strong></p>
               <p>
-                O tratamento dos dados é realizado com base no consentimento do titular, conforme
-                Art. 7 da Lei 13.709/2018 (LGPD).
+                As autorizações informadas pelo responsável serão utilizadas
+                para controle interno sobre participação, uso de imagem e
+                contato por WhatsApp.
+              </p>
+
+              <p>
+                <strong>4. Compartilhamento</strong>
+              </p>
+              <p>
+                Os dados não serão compartilhados com terceiros, exceto quando
+                exigido por lei ou mediante autorização adequada.
+              </p>
+
+              <p>
+                <strong>5. Armazenamento e Segurança</strong>
+              </p>
+              <p>
+                Os dados são armazenados de forma segura com acesso restrito
+                apenas às lideranças e pessoas autorizadas.
+              </p>
+
+              <p>
+                <strong>6. Direitos do Titular</strong>
+              </p>
+              <p>
+                O titular ou responsável legal pode solicitar acesso, correção
+                ou exclusão dos dados, conforme a legislação aplicável.
+              </p>
+
+              <p>
+                <strong>7. Base Legal</strong>
+              </p>
+              <p>
+                O tratamento dos dados é realizado com base no consentimento,
+                conforme a Lei 13.709/2018, Lei Geral de Proteção de Dados.
               </p>
             </div>
           </Modal>

@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext.jsx";
 
 import bgImg from "../assets/bg-visitors.png";
 
-const TOKEN_KEY = "umadrur_token";
+const TOKEN_KEY = "gt_token";
 
 export default function AdminLayout({ children, title }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

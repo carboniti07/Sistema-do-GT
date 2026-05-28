@@ -80,12 +80,13 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const rolePermissionMap = {
   ADMIN: ["*"],
+
   SECRETARIA_GERAL: [
     "CONG_VIEW",
     "CONG_EDIT",
-    "JOVENS_VIEW",
-    "JOVENS_EDIT",
-    "JOVENS_APPROVE",
+    "ADOLESCENTES_VIEW",
+    "ADOLESCENTES_EDIT",
+    "ADOLESCENTES_APPROVE",
     "REPORTS_VIEW",
     "USERS_CREATE",
     "USERS_EDIT",
@@ -95,36 +96,41 @@ const rolePermissionMap = {
     "CAMISAS_MANAGE",
     "CAMISAS_COMPROVANTES_MANAGE",
   ],
+
   SECRETARIA_LOCAL: [
     "CONG_VIEW",
-    "JOVENS_VIEW",
-    "JOVENS_EDIT",
+    "ADOLESCENTES_VIEW",
+    "ADOLESCENTES_EDIT",
     "REPORTS_VIEW",
   ],
+
   LIDER: [
     "CONG_VIEW",
-    "JOVENS_VIEW",
-    "JOVENS_EDIT",
+    "ADOLESCENTES_VIEW",
+    "ADOLESCENTES_EDIT",
     "REPORTS_VIEW",
   ],
+
   VISUALIZADOR: [
     "CONG_VIEW",
-    "JOVENS_VIEW",
+    "ADOLESCENTES_VIEW",
     "REPORTS_VIEW",
   ],
+
   COORDENADOR: [
     "CONG_VIEW",
     "CONG_EDIT",
-    "JOVENS_VIEW",
-    "JOVENS_EDIT",
-    "JOVENS_APPROVE",
+    "ADOLESCENTES_VIEW",
+    "ADOLESCENTES_EDIT",
+    "ADOLESCENTES_APPROVE",
     "REPORTS_VIEW",
     "USERS_CREATE",
     "CAMISAS_VIEW",
   ],
+
   TESOUREIRO_CAMPO: [
     "CONG_VIEW",
-    "JOVENS_VIEW",
+    "ADOLESCENTES_VIEW",
     "REPORTS_VIEW",
     "CAMISAS_VIEW",
     "CAMISAS_MANAGE",
@@ -271,10 +277,10 @@ function whatsappUrl(telefone, mensagem) {
 
 function mensagemReserva(reserva) {
   if (reserva.statusPagamento === "confirmado") {
-    return `Paz do Senhor, ${reserva.nome}. Seu pagamento da camisa da UMADRUR foi confirmado. Deus abençoe.`;
+    return `Paz do Senhor, ${reserva.nome}. Seu pagamento da camisa do Geração Teen foi confirmado. Deus abençoe.`;
   }
 
-  return `Paz do Senhor, ${reserva.nome}. Identificamos sua reserva da camisa da UMADRUR. Consta como pagamento pendente. Assim que realizar o pagamento, envie o comprovante para confirmação.`;
+  return `Paz do Senhor, ${reserva.nome}. Identificamos sua reserva da camisa do Geração Teen. Consta como pagamento pendente. Assim que realizar o pagamento, envie o comprovante para confirmação.`;
 }
 
 function getReservaItens(reserva) {
@@ -614,16 +620,16 @@ async function salvarFinanceiroReserva(e) {
   }, [rankingCongregacoes]);
 
   const metaResumo = useMemo(() => {
-    return {
-      totalJovensCampo: resumoApi?.totalJovensCampo || 0,
-      metaGeralCamisas: resumoApi?.metaGeralCamisas || 0,
-      camisasConfirmadas: resumoApi?.camisasConfirmadas || 0,
-      faltamParaMetaGeral: resumoApi?.faltamParaMetaGeral || 0,
-      percentualMetaGeral: resumoApi?.percentualMetaGeral || 0,
-      congregacaoLider: resumoApi?.congregacaoLider || null,
-      congregacoesAbaixo50: resumoApi?.congregacoesAbaixo50 || 0,
-    };
-  }, [resumoApi]);
+  return {
+    totalAdolescentesCampo: resumoApi?.totalAdolescentesCampo || 0,
+    metaGeralCamisas: resumoApi?.metaGeralCamisas || 0,
+    camisasConfirmadas: resumoApi?.camisasConfirmadas || 0,
+    faltamParaMetaGeral: resumoApi?.faltamParaMetaGeral || 0,
+    percentualMetaGeral: resumoApi?.percentualMetaGeral || 0,
+    congregacaoLider: resumoApi?.congregacaoLider || null,
+    congregacoesAbaixo50: resumoApi?.congregacoesAbaixo50 || 0,
+  };
+}, [resumoApi]);
 
   const graficoStatus = useMemo(() => {
     const data = [
@@ -871,7 +877,7 @@ async function salvarFinanceiroReserva(e) {
       ]);
 
       const wb = new ExcelJS.Workbook();
-      wb.creator = "UMADRUR";
+      wb.creator = "Geração Teen";
       wb.created = new Date();
 
       const wsResumo = wb.addWorksheet("Resumo Executivo");
@@ -932,7 +938,7 @@ async function salvarFinanceiroReserva(e) {
         });
       }
 
-      styleTitle(wsResumo, "UMADRUR | Resumo Executivo da Campanha de Camisas", "A1:D1");
+      styleTitle(wsResumo, "Geração Teen | Resumo Executivo da Campanha de Camisas", "A1:D1");
       wsResumo.addRow(["Gerado em", new Date().toLocaleString("pt-BR")]);
       wsResumo.addRow(["Campanha", campanha?.nomeCampanha || "-"]);
       wsResumo.addRow(["Tema", campanha?.tema || "-"]);
@@ -940,7 +946,7 @@ async function salvarFinanceiroReserva(e) {
       styleHeader(wsResumo.addRow(["Indicador", "Valor", "Indicador", "Valor"]));
 
       [
-        ["Total de jovens", metaResumo.totalJovensCampo, "Meta geral", metaResumo.metaGeralCamisas],
+        ["Total de adolescentes", metaResumo.totalAdolescentesCampo, "Meta geral", metaResumo.metaGeralCamisas],
         ["Camisas confirmadas", metaResumo.camisasConfirmadas, "% da meta", `${metaResumo.percentualMetaGeral}%`],
         ["Faltam para meta", metaResumo.faltamParaMetaGeral, "Congregações abaixo de 50%", metaResumo.congregacoesAbaixo50],
         ["Total de reservas", resumoFiltrado.totalReservas, "Camisas reservadas", resumoFiltrado.totalCamisas],
@@ -956,7 +962,7 @@ async function salvarFinanceiroReserva(e) {
       wsResumo.getColumn(2).numFmt = '"R$" #,##0.00';
       wsResumo.getColumn(4).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsReservas, "UMADRUR | Relatório de Reservas", "A1:M1");
+      styleTitle(wsReservas, "Geração Teen | Relatório de Reservas", "A1:M1");
       wsReservas.addRow([`Gerado em: ${new Date().toLocaleString("pt-BR")}`]);
       wsReservas.addRow([]);
       styleHeader(
@@ -1014,7 +1020,7 @@ async function salvarFinanceiroReserva(e) {
       wsReservas.getColumn(8).numFmt = '"R$" #,##0.00';
       wsReservas.getColumn(9).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsItens, "UMADRUR | Itens Individuais das Camisas", "A1:H1");
+      styleTitle(wsItens, "Geração Teen | Itens Individuais das Camisas", "A1:H1");
       wsItens.addRow([]);
       styleHeader(
         wsItens.addRow([
@@ -1058,7 +1064,7 @@ async function salvarFinanceiroReserva(e) {
         { width: 22 },
       ];
 
-      styleTitle(wsCongregacoes, "UMADRUR | Resumo por Congregação", "A1:F1");
+      styleTitle(wsCongregacoes, "Geração Teen | Resumo por Congregação", "A1:F1");
       wsCongregacoes.addRow([]);
       styleHeader(
         wsCongregacoes.addRow([
@@ -1095,7 +1101,7 @@ async function salvarFinanceiroReserva(e) {
       wsCongregacoes.getColumn(5).numFmt = '"R$" #,##0.00';
       wsCongregacoes.getColumn(6).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsTamanhos, "UMADRUR | Resumo por Tamanho", "A1:B1");
+      styleTitle(wsTamanhos, "Geração Teen | Resumo por Tamanho", "A1:B1");
       wsTamanhos.addRow([]);
       styleHeader(wsTamanhos.addRow(["Tamanho", "Quantidade"]));
 
@@ -1106,13 +1112,13 @@ async function salvarFinanceiroReserva(e) {
 
       wsTamanhos.columns = [{ width: 18 }, { width: 16 }];
 
-      styleTitle(wsRanking, "UMADRUR | Ranking Público por Congregação", "A1:I1");
+      styleTitle(wsRanking,"Geração Teen | Ranking Público por Congregação", "A1:I1");
       wsRanking.addRow([]);
       styleHeader(
         wsRanking.addRow([
           "Posição",
           "Congregação",
-          "Jovens",
+          "Adolescentes",
           "Meta",
           "Reservadas",
           "Confirmadas",
@@ -1126,7 +1132,7 @@ async function salvarFinanceiroReserva(e) {
         const row = wsRanking.addRow([
           item.posicao,
           item.congregacao,
-          item.totalJovens,
+          item.totalAdolescentes,
           item.metaCamisas,
           item.camisasReservadas,
           item.camisasConfirmadas,
@@ -1151,7 +1157,7 @@ async function salvarFinanceiroReserva(e) {
       ];
       wsRanking.getColumn(9).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsCampanhas, "UMADRUR | Histórico de Campanhas", "A1:H1");
+      styleTitle(wsCampanhas, "Geração Teen | Histórico de Campanhas", "A1:H1");
       wsCampanhas.addRow([]);
       styleHeader(
         wsCampanhas.addRow([
@@ -1197,7 +1203,7 @@ async function salvarFinanceiroReserva(e) {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
-      saveAs(blob, `UMADRUR_Camisas_Ranking_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      saveAs(blob, `Geração_Teen_Camisas_Ranking_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err) {
       toast.error(err?.message || "Erro ao exportar Excel");
     }
@@ -1215,11 +1221,11 @@ async function salvarFinanceiroReserva(e) {
               </div>
 
               <h2 className="text-2xl md:text-3xl font-heading font-semibold text-foreground leading-tight">
-                Camisas UMADRUR
+                Camisas Geração Teen
               </h2>
 
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-                Reservas, pagamentos, comprovantes, metas, ranking e painel de competição em tempo real.
+                Reservas, pagamentos, comprovantes, metas, ranking e painel de acompanhamento em tempo real.
               </p>
             </div>
 
@@ -1286,7 +1292,7 @@ async function salvarFinanceiroReserva(e) {
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
-          <ResumoCardPremium icon={Users} label="Jovens cadastrados" value={loading ? "..." : metaResumo.totalJovensCampo} />
+          <ResumoCardPremium icon={Users} label="Adolescentes cadastrados" value={loading ? "..." : metaResumo.totalAdolescentesCampo} />
           <ResumoCardPremium icon={Target} label="Meta geral" value={loading ? "..." : metaResumo.metaGeralCamisas} />
           <ResumoCardPremium icon={CheckCircle} label="Confirmadas para meta" value={loading ? "..." : metaResumo.camisasConfirmadas} />
           <ResumoCardPremium icon={Trophy} label="% da meta" value={loading ? "..." : `${metaResumo.percentualMetaGeral}%`} highlight />
@@ -2252,7 +2258,7 @@ async function salvarFinanceiroReserva(e) {
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
               <div>
                 <p className="text-xs uppercase tracking-[0.28em] text-white/75">
-                  UMADRUR
+                  Geração Teen
                 </p>
                 <h2 className="text-3xl md:text-5xl font-heading font-bold mt-2">
                   Ranking das Camisas
@@ -2351,7 +2357,7 @@ function RankingCard({ item, compact = false }) {
 
           {!compact && (
             <p className="text-xs text-muted-foreground mt-1">
-              {item.totalJovens} jovens · meta {item.metaCamisas} camisas
+              {item.totalAdolescentes} adolescentes · meta {item.metaCamisas} camisas
             </p>
           )}
         </div>

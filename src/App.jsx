@@ -2,11 +2,12 @@ import React from "react";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
 import Camisas from "./pages/admin/Camisas.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
 import Login from "./pages/admin/Login.jsx";
 import Dashboard from "./pages/admin/Dashboard.jsx";
-import Jovens from "./pages/admin/Jovens.jsx";
+import Adolescentes from "./pages/admin/Adolescentes.jsx";
 import Usuarios from "./pages/admin/Usuarios.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Congregacoes from "./pages/admin/Congregacoes.jsx";
@@ -21,7 +22,7 @@ import { useAuth } from "./auth/AuthContext.jsx";
 import { hasPermission } from "./auth/hasPermission.js";
 
 const queryClient = new QueryClient();
-const TOKEN_KEY = "umadrur_token";
+const TOKEN_KEY = "gt_token";
 
 function canViewAdmin(user) {
   return (
@@ -96,12 +97,17 @@ export default function App() {
           />
 
           <Route
-            path="/admin/jovens"
+            path="/admin/adolescentes"
             element={
               <ProtectedAdminRoute user={user} loading={loading}>
-                <Jovens />
+                <Adolescentes />
               </ProtectedAdminRoute>
             }
+          />
+
+          <Route
+            path="/admin/jovens"
+            element={<Navigate to="/admin/adolescentes" replace />}
           />
 
           <Route
@@ -151,18 +157,20 @@ export default function App() {
               </ProtectedPermissionRoute>
             }
           />
-<Route
-  path="/admin/camisas"
-  element={
-    <ProtectedPermissionRoute
-      user={user}
-      loading={loading}
-      perm={Perms.CAMISAS_VIEW}
-    >
-      <Camisas />
-    </ProtectedPermissionRoute>
-  }
-/>
+
+          <Route
+            path="/admin/camisas"
+            element={
+              <ProtectedPermissionRoute
+                user={user}
+                loading={loading}
+                perm={Perms.CAMISAS_VIEW}
+              >
+                <Camisas />
+              </ProtectedPermissionRoute>
+            }
+          />
+
           <Route path="/admin/primeiro-acesso" element={<PrimeiroAcesso />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -15,7 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 import { useAuth } from "../../auth/AuthContext.jsx";
 
-const TOKEN_KEY = "umadrur_token";
+const TOKEN_KEY = "gt_token";
 
 const roleLabels = {
   ADMIN: "Administrador",

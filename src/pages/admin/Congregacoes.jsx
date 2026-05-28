@@ -4,17 +4,55 @@ import Card from "../../components/Card";
 import Table from "../../components/Table";
 import Modal from "../../components/Modal";
 import StatCard from "../../components/StatCard";
-import { Building2, Users, Droplets, Sparkles, Shield, Copy, Info, RefreshCcw } from "lucide-react";
+import {
+  Building2,
+  Users,
+  Droplets,
+  Sparkles,
+  Copy,
+  Info,
+  RefreshCcw,
+  CheckCircle2,
+  ImageIcon,
+  MessageCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { listJovens } from "../../lib/jovensApi";
+import { listAdolescentes } from "../../lib/adolescentesApi.js";
 import { congregacoes, getCongregacaoNome } from "../../lib/congregacoes";
 
-function formatDate(v) {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("pt-BR");
+function formatDate(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("pt-BR");
+}
+
+function formatPhone(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (digits.length === 11) {
+    return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  }
+
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  }
+
+  return value || "-";
+}
+
+function booleanLabel(value) {
+  return value ? "Sim" : "Não";
+}
+
+function percent(value, total) {
+  if (!total) return "0%";
+
+  return `${Math.min(100, (value / total) * 100)}%`;
 }
 
 async function copyToClipboard(text) {
@@ -29,17 +67,21 @@ async function copyToClipboard(text) {
 export default function Congregacoes() {
   const [open, setOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState("");
-  const [jovens, setJovens] = useState([]);
+  const [adolescentes, setAdolescentes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
     try {
       setLoading(true);
-      const data = await listJovens();
-      setJovens(Array.isArray(data?.jovens) ? data.jovens : []);
+
+      const data = await listAdolescentes();
+
+      setAdolescentes(
+        Array.isArray(data?.adolescentes) ? data.adolescentes : []
+      );
     } catch (err) {
       toast.error(err?.message || "Erro ao carregar congregações");
-      setJovens([]);
+      setAdolescentes([]);
     } finally {
       setLoading(false);
     }
@@ -51,14 +93,31 @@ export default function Congregacoes() {
 
   const rows = useMemo(() => {
     return congregacoes.map((key) => {
-      const jovensDaCongregacao = jovens.filter(
-        (j) => getCongregacaoNome(j.congregacaoId) === key
+      const adolescentesDaCongregacao = adolescentes.filter(
+        (adolescente) => getCongregacaoNome(adolescente.congregacaoId) === key
       );
 
-      const total = jovensDaCongregacao.length;
-      const batAguas = jovensDaCongregacao.filter((j) => j.batismoAguas).length;
-      const batES = jovensDaCongregacao.filter((j) => j.batismoES).length;
-      const comCargo = jovensDaCongregacao.filter((j) => j.cargo).length;
+      const total = adolescentesDaCongregacao.length;
+
+      const batAguas = adolescentesDaCongregacao.filter(
+        (adolescente) => adolescente.batismoAguas
+      ).length;
+
+      const batES = adolescentesDaCongregacao.filter(
+        (adolescente) => adolescente.batismoES
+      ).length;
+
+      const autorizaParticipacao = adolescentesDaCongregacao.filter(
+        (adolescente) => adolescente.autorizaParticipacao
+      ).length;
+
+      const autorizaImagem = adolescentesDaCongregacao.filter(
+        (adolescente) => adolescente.autorizaImagem
+      ).length;
+
+      const autorizaWhatsApp = adolescentesDaCongregacao.filter(
+        (adolescente) => adolescente.autorizaWhatsApp
+      ).length;
 
       return {
         key,
@@ -66,60 +125,115 @@ export default function Congregacoes() {
         total,
         batAguas,
         batES,
-        comCargo,
+        autorizaParticipacao,
+        autorizaImagem,
+        autorizaWhatsApp,
       };
     });
-  }, [jovens]);
+  }, [adolescentes]);
 
   const totals = useMemo(() => {
-    const total = jovens.length;
-    const batAguas = jovens.filter((j) => j.batismoAguas).length;
-    const batES = jovens.filter((j) => j.batismoES).length;
-    const comCargo = jovens.filter((j) => j.cargo).length;
-    return { total, batAguas, batES, comCargo };
-  }, [jovens]);
+    const total = adolescentes.length;
+
+    const batAguas = adolescentes.filter(
+      (adolescente) => adolescente.batismoAguas
+    ).length;
+
+    const batES = adolescentes.filter(
+      (adolescente) => adolescente.batismoES
+    ).length;
+
+    const autorizaParticipacao = adolescentes.filter(
+      (adolescente) => adolescente.autorizaParticipacao
+    ).length;
+
+    const autorizaImagem = adolescentes.filter(
+      (adolescente) => adolescente.autorizaImagem
+    ).length;
+
+    const autorizaWhatsApp = adolescentes.filter(
+      (adolescente) => adolescente.autorizaWhatsApp
+    ).length;
+
+    return {
+      total,
+      batAguas,
+      batES,
+      autorizaParticipacao,
+      autorizaImagem,
+      autorizaWhatsApp,
+    };
+  }, [adolescentes]);
 
   const columns = [
     { key: "congregacao", label: "Congregação" },
     { key: "total", label: "Total" },
     { key: "batAguas", label: "Bat. Águas" },
     { key: "batES", label: "Bat. E.S." },
-    { key: "comCargo", label: "Com cargo" },
+    { key: "autorizaParticipacao", label: "Participação" },
+    { key: "autorizaImagem", label: "Imagem" },
+    { key: "autorizaWhatsApp", label: "WhatsApp" },
   ];
 
-  const openDetails = (key) => {
+  function openDetails(key) {
     setSelectedKey(key);
     setOpen(true);
-  };
+  }
 
   const selectedData = useMemo(() => {
     if (!selectedKey) return null;
 
-    const jovensDaCongregacao = jovens.filter(
-      (j) => getCongregacaoNome(j.congregacaoId) === selectedKey
+    const adolescentesDaCongregacao = adolescentes.filter(
+      (adolescente) =>
+        getCongregacaoNome(adolescente.congregacaoId) === selectedKey
     );
 
-    const total = jovensDaCongregacao.length;
-    const batAguas = jovensDaCongregacao.filter((j) => j.batismoAguas).length;
-    const batES = jovensDaCongregacao.filter((j) => j.batismoES).length;
-    const comCargo = jovensDaCongregacao.filter((j) => j.cargo).length;
+    const total = adolescentesDaCongregacao.length;
 
-    const recent = [...jovensDaCongregacao]
+    const batAguas = adolescentesDaCongregacao.filter(
+      (adolescente) => adolescente.batismoAguas
+    ).length;
+
+    const batES = adolescentesDaCongregacao.filter(
+      (adolescente) => adolescente.batismoES
+    ).length;
+
+    const autorizaParticipacao = adolescentesDaCongregacao.filter(
+      (adolescente) => adolescente.autorizaParticipacao
+    ).length;
+
+    const autorizaImagem = adolescentesDaCongregacao.filter(
+      (adolescente) => adolescente.autorizaImagem
+    ).length;
+
+    const autorizaWhatsApp = adolescentesDaCongregacao.filter(
+      (adolescente) => adolescente.autorizaWhatsApp
+    ).length;
+
+    const semParticipacaoAutorizada =
+      total > 0 ? total - autorizaParticipacao : 0;
+
+    const semImagemAutorizada = total > 0 ? total - autorizaImagem : 0;
+
+    const semWhatsAppAutorizado = total > 0 ? total - autorizaWhatsApp : 0;
+
+    const recent = [...adolescentesDaCongregacao]
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
       .slice(0, 5);
 
-    const cargoCount = {};
-    jovensDaCongregacao.forEach((j) => {
-      if (!j.cargo) return;
-      cargoCount[j.cargo] = (cargoCount[j.cargo] || 0) + 1;
-    });
-
-    const topCargos = Object.entries(cargoCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-
-    return { total, batAguas, batES, comCargo, recent, topCargos };
-  }, [selectedKey, jovens]);
+    return {
+      total,
+      batAguas,
+      batES,
+      autorizaParticipacao,
+      autorizaImagem,
+      autorizaWhatsApp,
+      semParticipacaoAutorizada,
+      semImagemAutorizada,
+      semWhatsAppAutorizado,
+      recent,
+    };
+  }, [selectedKey, adolescentes]);
 
   const actions = (row) => (
     <div className="flex gap-2">
@@ -127,6 +241,7 @@ export default function Congregacoes() {
         onClick={() => copyToClipboard(row.key)}
         className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground transition-colors inline-flex items-center gap-2"
         title="Copiar nome da congregação"
+        type="button"
       >
         <Copy size={14} />
         Copiar
@@ -136,6 +251,7 @@ export default function Congregacoes() {
         onClick={() => openDetails(row.key)}
         className="text-xs px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-surface-2 transition-colors inline-flex items-center gap-2"
         title="Ver detalhes"
+        type="button"
       >
         <Info size={14} />
         Detalhes
@@ -158,12 +274,42 @@ export default function Congregacoes() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard icon={Building2} value={loading ? "..." : congregacoes.length} label="Congregações" />
-          <StatCard icon={Users} value={loading ? "..." : totals.total} label="Total de jovens" />
-          <StatCard icon={Droplets} value={loading ? "..." : totals.batAguas} label="Batizados nas Águas" />
-          <StatCard icon={Sparkles} value={loading ? "..." : totals.batES} label="Batizados com Espírito Santo" />
-          <StatCard icon={Shield} value={loading ? "..." : totals.comCargo} label="Com cargo" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          <StatCard
+            icon={Building2}
+            value={loading ? "..." : congregacoes.length}
+            label="Congregações"
+          />
+
+          <StatCard
+            icon={Users}
+            value={loading ? "..." : totals.total}
+            label="Total de adolescentes"
+          />
+
+          <StatCard
+            icon={Droplets}
+            value={loading ? "..." : totals.batAguas}
+            label="Batizados nas Águas"
+          />
+
+          <StatCard
+            icon={Sparkles}
+            value={loading ? "..." : totals.batES}
+            label="Batizados com Espírito Santo"
+          />
+
+          <StatCard
+            icon={CheckCircle2}
+            value={loading ? "..." : totals.autorizaParticipacao}
+            label="Participação autorizada"
+          />
+
+          <StatCard
+            icon={ImageIcon}
+            value={loading ? "..." : totals.autorizaImagem}
+            label="Imagem autorizada"
+          />
         </div>
 
         <Card>
@@ -172,8 +318,9 @@ export default function Congregacoes() {
               <h3 className="font-heading font-semibold text-foreground">
                 Listagem por congregação
               </h3>
+
               <p className="text-sm text-muted-foreground mt-1">
-                Visualização e ações rápidas.
+                Visualização de cadastros, batismos e autorizações por congregação.
               </p>
             </div>
           </div>
@@ -191,7 +338,9 @@ export default function Congregacoes() {
                   <div className="min-w-0">
                     <div className="inline-flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 rounded-full bg-primary" />
-                      <p className="text-xs text-muted-foreground">Congregação</p>
+                      <p className="text-xs text-muted-foreground">
+                        Congregação
+                      </p>
                     </div>
 
                     <h4 className="mt-1 text-lg font-heading font-semibold text-foreground truncate">
@@ -203,35 +352,42 @@ export default function Congregacoes() {
                     onClick={() => copyToClipboard(selectedKey)}
                     className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-95 transition-opacity inline-flex items-center gap-2"
                     title="Copiar"
+                    type="button"
                   >
                     <Copy size={16} />
                     Copiar
                   </button>
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
                     { label: "Total", value: selectedData.total },
                     { label: "Bat. Águas", value: selectedData.batAguas },
                     { label: "Bat. E.S.", value: selectedData.batES },
-                    { label: "Com cargo", value: selectedData.comCargo },
-                  ].map((it) => (
+                    {
+                      label: "Participação",
+                      value: selectedData.autorizaParticipacao,
+                    },
+                    { label: "Imagem", value: selectedData.autorizaImagem },
+                    { label: "WhatsApp", value: selectedData.autorizaWhatsApp },
+                  ].map((item) => (
                     <div
-                      key={it.label}
+                      key={item.label}
                       className="rounded-xl border border-border bg-card px-4 py-3"
                     >
-                      <div className="text-[11px] text-muted-foreground">{it.label}</div>
-                      <div className="mt-1 text-2xl font-heading font-semibold text-foreground tabular-nums leading-none">
-                        {it.value}
+                      <div className="text-[11px] text-muted-foreground">
+                        {item.label}
                       </div>
+
+                      <div className="mt-1 text-2xl font-heading font-semibold text-foreground tabular-nums leading-none">
+                        {item.value}
+                      </div>
+
                       <div className="mt-2 h-1.5 w-full rounded-full bg-surface-2">
                         <div
                           className="h-1.5 rounded-full bg-primary"
                           style={{
-                            width:
-                              selectedData.total > 0
-                                ? Math.min(100, (it.value / selectedData.total) * 100) + "%"
-                                : "0%",
+                            width: percent(item.value, selectedData.total),
                           }}
                         />
                       </div>
@@ -246,6 +402,7 @@ export default function Congregacoes() {
                     <h5 className="text-sm font-heading font-semibold text-foreground">
                       Último cadastro
                     </h5>
+
                     <span className="text-xs text-muted-foreground">
                       {selectedData.recent.length ? "mais recente" : ""}
                     </span>
@@ -262,8 +419,14 @@ export default function Congregacoes() {
                           <div className="text-base font-semibold text-foreground truncate">
                             {selectedData.recent[0].nome}
                           </div>
+
                           <div className="mt-1 text-sm text-muted-foreground truncate">
-                            {selectedData.recent[0].telefone || "-"}
+                            {formatPhone(selectedData.recent[0].telefone)}
+                          </div>
+
+                          <div className="mt-1 text-xs text-muted-foreground truncate">
+                            Responsável:{" "}
+                            {selectedData.recent[0].responsavelNome || "-"}
                           </div>
                         </div>
 
@@ -282,50 +445,36 @@ export default function Congregacoes() {
                 <div className="rounded-2xl border border-border bg-card p-6">
                   <div className="flex items-center justify-between">
                     <h5 className="text-sm font-heading font-semibold text-foreground">
-                      Cargo mais comum
+                      Autorizações pendentes
                     </h5>
+
                     <span className="text-xs text-muted-foreground">
-                      {selectedData.topCargos.length ? "top 1" : ""}
+                      total por tipo
                     </span>
                   </div>
 
-                  {selectedData.topCargos.length === 0 ? (
-                    <div className="mt-4 text-sm text-muted-foreground">
-                      Nenhum cargo cadastrado.
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-2xl border border-border bg-surface-2/40 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-base font-semibold text-foreground truncate">
-                            {selectedData.topCargos[0][0]}
-                          </div>
-                          <div className="mt-1 text-sm text-muted-foreground">
-                            Pessoas com esse cargo
-                          </div>
-                        </div>
+                  <div className="mt-4 space-y-4">
+                    <AuthorizationRow
+                      icon={CheckCircle2}
+                      label="Sem autorização de participação"
+                      value={selectedData.semParticipacaoAutorizada}
+                      total={selectedData.total}
+                    />
 
-                        <div className="shrink-0 text-2xl font-heading font-semibold text-foreground tabular-nums">
-                          {selectedData.topCargos[0][1]}
-                        </div>
-                      </div>
+                    <AuthorizationRow
+                      icon={ImageIcon}
+                      label="Sem autorização de imagem"
+                      value={selectedData.semImagemAutorizada}
+                      total={selectedData.total}
+                    />
 
-                      <div className="mt-4 h-1.5 w-full rounded-full bg-surface-2">
-                        <div
-                          className="h-1.5 rounded-full bg-primary"
-                          style={{
-                            width:
-                              selectedData.total > 0
-                                ? Math.min(
-                                    100,
-                                    (selectedData.topCargos[0][1] / selectedData.total) * 100
-                                  ) + "%"
-                                : "0%",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                    <AuthorizationRow
+                      icon={MessageCircle}
+                      label="Sem autorização de WhatsApp"
+                      value={selectedData.semWhatsAppAutorizado}
+                      total={selectedData.total}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -333,6 +482,7 @@ export default function Congregacoes() {
                 <button
                   onClick={() => setOpen(false)}
                   className="h-10 px-5 rounded-xl border border-border bg-card text-sm text-foreground hover:bg-surface-2 transition-colors"
+                  type="button"
                 >
                   Fechar
                 </button>
@@ -342,5 +492,31 @@ export default function Congregacoes() {
         </Modal>
       </div>
     </AdminLayout>
+  );
+}
+
+function AuthorizationRow({ icon: Icon, label, value, total }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon size={16} className="text-muted-foreground shrink-0" />
+          <span className="text-sm text-foreground truncate">{label}</span>
+        </div>
+
+        <span className="text-sm font-semibold text-foreground tabular-nums">
+          {value}
+        </span>
+      </div>
+
+      <div className="mt-2 h-1.5 w-full rounded-full bg-surface-2">
+        <div
+          className="h-1.5 rounded-full bg-primary"
+          style={{
+            width: percent(value, total),
+          }}
+        />
+      </div>
+    </div>
   );
 }

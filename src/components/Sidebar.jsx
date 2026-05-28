@@ -21,7 +21,8 @@ export default function Sidebar({ onClose }) {
   const { user, logout } = useAuth();
 
   const canViewAdmin =
-    hasPermission(user, Perms.VIEW_ALL) || hasPermission(user, Perms.VIEW_OWN_CONG);
+    hasPermission(user, Perms.VIEW_ALL) ||
+    hasPermission(user, Perms.VIEW_OWN_CONG);
 
   const canManageUsers = hasPermission(user, Perms.MANAGE_USERS);
   const canViewAll = hasPermission(user, Perms.VIEW_ALL);
@@ -33,7 +34,7 @@ export default function Sidebar({ onClose }) {
     if (canViewAdmin) {
       items.push(
         { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { path: "/admin/jovens", label: "Jovens", icon: Users },
+        { path: "/admin/adolescentes", label: "Adolescentes", icon: Users },
         { path: "/admin/relatorios", label: "Relatórios", icon: BarChart3 }
       );
     }
@@ -53,9 +54,11 @@ export default function Sidebar({ onClose }) {
         { path: "/admin/configuracoes", label: "Configurações", icon: Settings }
       );
     } else if (canViewAll) {
-      items.push(
-        { path: "/admin/congregacoes", label: "Congregações", icon: Building2 }
-      );
+      items.push({
+        path: "/admin/congregacoes",
+        label: "Congregações",
+        icon: Building2,
+      });
     }
 
     return items;
@@ -64,12 +67,18 @@ export default function Sidebar({ onClose }) {
   const handleLogout = () => {
     logout();
     navigate("/admin/login", { replace: true });
-    if (onClose) onClose();
+
+    if (onClose) {
+      onClose();
+    }
   };
 
   const handleNav = (path) => {
     navigate(path);
-    if (onClose) onClose();
+
+    if (onClose) {
+      onClose();
+    }
   };
 
   const baseItem =
@@ -79,8 +88,9 @@ export default function Sidebar({ onClose }) {
     <div className="w-64 bg-card h-full flex flex-col border-r border-border">
       <div className="p-4 border-b border-border">
         <h2 className="font-heading font-bold text-primary text-base tracking-tight leading-none">
-          UMADRUR
+          Geração Teen
         </h2>
+
         <p className="text-xs text-muted-foreground mt-1 leading-none">
           Painel Administrativo
         </p>
