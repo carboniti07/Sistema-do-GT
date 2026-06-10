@@ -3,11 +3,13 @@ import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+import InicioCadastro from "./pages/InicioCadastro.jsx";
 import Camisas from "./pages/admin/Camisas.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
 import Login from "./pages/admin/Login.jsx";
 import Dashboard from "./pages/admin/Dashboard.jsx";
 import Adolescentes from "./pages/admin/Adolescentes.jsx";
+import Aniversarios from "./pages/admin/Aniversarios.jsx";
 import Usuarios from "./pages/admin/Usuarios.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Congregacoes from "./pages/admin/Congregacoes.jsx";
@@ -26,7 +28,8 @@ const TOKEN_KEY = "gt_token";
 
 function canViewAdmin(user) {
   return (
-    hasPermission(user, Perms.VIEW_ALL) || hasPermission(user, Perms.VIEW_OWN_CONG)
+    hasPermission(user, Perms.VIEW_ALL) ||
+    hasPermission(user, Perms.VIEW_OWN_CONG)
   );
 }
 
@@ -81,7 +84,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/cadastro" replace />} />
+          <Route path="/" element={<InicioCadastro />} />
           <Route path="/cadastro" element={<Cadastro />} />
 
           <Route path="/admin/login" element={<Login />} />
@@ -101,6 +104,15 @@ export default function App() {
             element={
               <ProtectedAdminRoute user={user} loading={loading}>
                 <Adolescentes />
+              </ProtectedAdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/aniversarios"
+            element={
+              <ProtectedAdminRoute user={user} loading={loading}>
+                <Aniversarios />
               </ProtectedAdminRoute>
             }
           />

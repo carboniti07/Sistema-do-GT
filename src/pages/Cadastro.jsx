@@ -42,14 +42,15 @@ const initialForm = {
   cpf: "",
   telefone: "",
 
+  responsavelNome: "",
+  responsavelCpf: "",
+  responsavelParentesco: "",
+  responsavelTelefone: "",
+
   nomeMae: "",
   telefoneMae: "",
   nomePai: "",
   telefonePai: "",
-
-  responsavelNome: "",
-  responsavelParentesco: "",
-  responsavelTelefone: "",
 
   cep: "",
   logradouro: "",
@@ -141,12 +142,15 @@ function formatPersonName(value = "") {
 
 function isValidPhoneOptional(value) {
   const digits = unmask(value);
+
   if (!digits) return true;
+
   return digits.length === 10 || digits.length === 11;
 }
 
 function isValidPhoneRequired(value) {
   const digits = unmask(value);
+
   return digits.length === 10 || digits.length === 11;
 }
 
@@ -206,8 +210,30 @@ export default function Cadastro() {
     }
 
     if (!form.sexo) e.sexo = "Selecione o sexo";
-    if (!validateCPF(unmask(form.cpf))) e.cpf = "CPF inválido";
-    if (!isValidPhoneRequired(form.telefone)) e.telefone = "Telefone inválido";
+
+    if (unmask(form.cpf) && !validateCPF(unmask(form.cpf))) {
+      e.cpf = "CPF do adolescente inválido";
+    }
+
+    if (unmask(form.telefone) && !isValidPhoneOptional(form.telefone)) {
+      e.telefone = "Telefone do adolescente inválido";
+    }
+
+    if (!form.responsavelNome.trim()) {
+      e.responsavelNome = "Informe o nome do responsável";
+    }
+
+    if (!validateCPF(unmask(form.responsavelCpf))) {
+      e.responsavelCpf = "CPF do responsável inválido";
+    }
+
+    if (!form.responsavelParentesco) {
+      e.responsavelParentesco = "Selecione o parentesco ou vínculo";
+    }
+
+    if (!isValidPhoneRequired(form.responsavelTelefone)) {
+      e.responsavelTelefone = "Telefone do responsável inválido";
+    }
 
     if (form.nomeMae.trim() && !isValidPhoneOptional(form.telefoneMae)) {
       e.telefoneMae = "Telefone da mãe inválido";
@@ -223,18 +249,6 @@ export default function Cadastro() {
 
     if (unmask(form.telefonePai) && !form.nomePai.trim()) {
       e.nomePai = "Informe o nome do pai ou remova o telefone";
-    }
-
-    if (!form.responsavelNome.trim()) {
-      e.responsavelNome = "Informe o nome do responsável";
-    }
-
-    if (!form.responsavelParentesco) {
-      e.responsavelParentesco = "Selecione o parentesco ou vínculo";
-    }
-
-    if (!isValidPhoneRequired(form.responsavelTelefone)) {
-      e.responsavelTelefone = "Telefone do responsável inválido";
     }
 
     if (unmask(form.cep).length !== 8) e.cep = "CEP inválido";
@@ -256,7 +270,8 @@ export default function Cadastro() {
     }
 
     if (!form.lgpdResponsavel) {
-      e.lgpdResponsavel = "O responsável precisa aceitar a Política de Privacidade";
+      e.lgpdResponsavel =
+        "O responsável precisa aceitar a Política de Privacidade";
     }
 
     setErrors(e);
@@ -283,14 +298,15 @@ export default function Cadastro() {
         cpf: unmask(form.cpf),
         telefone: unmask(form.telefone),
 
+        responsavelNome: formatPersonName(form.responsavelNome),
+        responsavelCpf: unmask(form.responsavelCpf),
+        responsavelParentesco: form.responsavelParentesco,
+        responsavelTelefone: unmask(form.responsavelTelefone),
+
         nomeMae: form.nomeMae ? formatPersonName(form.nomeMae) : "",
         telefoneMae: unmask(form.telefoneMae),
         nomePai: form.nomePai ? formatPersonName(form.nomePai) : "",
         telefonePai: unmask(form.telefonePai),
-
-        responsavelNome: formatPersonName(form.responsavelNome),
-        responsavelParentesco: form.responsavelParentesco,
-        responsavelTelefone: unmask(form.responsavelTelefone),
 
         cep: unmask(form.cep),
         logradouro: form.logradouro?.trim() || "",
@@ -414,6 +430,7 @@ export default function Cadastro() {
                 <p className="font-semibold">
                   Cadastro direcionado para a UMADRUR
                 </p>
+
                 <p className="mt-1">
                   O Geração Teen é destinado aos adolescentes menores de 17 anos.
                   Como a idade informada é de 17 anos ou mais, o cadastro deve
@@ -433,7 +450,7 @@ export default function Cadastro() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <Input
-                label="CPF"
+                label="CPF do adolescente, se souber"
                 value={form.cpf}
                 onChange={(v) => set("cpf", maskCPF(v))}
                 error={errors.cpf}
@@ -443,7 +460,7 @@ export default function Cadastro() {
               />
 
               <Input
-                label="Telefone do adolescente"
+                label="Telefone do adolescente, se houver"
                 value={form.telefone}
                 onChange={(v) => set("telefone", maskPhone(v))}
                 error={errors.telefone}
@@ -453,7 +470,70 @@ export default function Cadastro() {
               />
             </div>
 
-            <SectionTitle>Informações dos Pais ou Responsável</SectionTitle>
+            <SectionTitle>Responsável Legal pelo Cadastro</SectionTitle>
+
+            <div className="rounded-xl border border-border bg-surface-2/60 p-3 text-sm text-muted-foreground leading-relaxed">
+              O cadastro deve ser preenchido pelo pai, mãe ou responsável legal.
+              Os dados abaixo identificam quem está autorizando o cadastro e o
+              tratamento das informações do adolescente.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Input
+                label="Nome completo do responsável"
+                value={form.responsavelNome}
+                onChange={(v) => set("responsavelNome", v)}
+                onBlur={() =>
+                  set("responsavelNome", formatPersonName(form.responsavelNome))
+                }
+                error={errors.responsavelNome}
+              />
+
+              <Input
+                label="CPF do responsável"
+                value={form.responsavelCpf}
+                onChange={(v) => set("responsavelCpf", maskCPF(v))}
+                error={errors.responsavelCpf}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                inputMode="numeric"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <SelectField
+                label="Parentesco ou vínculo"
+                options={parentescoOptions}
+                value={
+                  parentescoOptions.find(
+                    (o) => o.value === form.responsavelParentesco
+                  ) || null
+                }
+                onChange={(opt) =>
+                  set("responsavelParentesco", opt?.value || "")
+                }
+                error={errors.responsavelParentesco}
+                placeholder="Selecione..."
+              />
+
+              <Input
+                label="Telefone do responsável"
+                value={form.responsavelTelefone}
+                onChange={(v) => set("responsavelTelefone", maskPhone(v))}
+                error={errors.responsavelTelefone}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+                inputMode="tel"
+              />
+            </div>
+
+            <SectionTitle>Filiação, opcional</SectionTitle>
+
+            <div className="rounded-xl border border-border bg-surface-2/60 p-3 text-sm text-muted-foreground leading-relaxed">
+              Informe os dados de pai e mãe apenas se souber ou se for necessário
+              para o acompanhamento interno. Esses campos não substituem o
+              responsável legal pelo cadastro.
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <Input
@@ -489,43 +569,6 @@ export default function Cadastro() {
                 value={form.telefonePai}
                 onChange={(v) => set("telefonePai", maskPhone(v))}
                 error={errors.telefonePai}
-                placeholder="(00) 00000-0000"
-                maxLength={15}
-                inputMode="tel"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <Input
-                label="Responsável principal"
-                value={form.responsavelNome}
-                onChange={(v) => set("responsavelNome", v)}
-                onBlur={() =>
-                  set("responsavelNome", formatPersonName(form.responsavelNome))
-                }
-                error={errors.responsavelNome}
-              />
-
-              <SelectField
-                label="Parentesco ou vínculo"
-                options={parentescoOptions}
-                value={
-                  parentescoOptions.find(
-                    (o) => o.value === form.responsavelParentesco
-                  ) || null
-                }
-                onChange={(opt) =>
-                  set("responsavelParentesco", opt?.value || "")
-                }
-                error={errors.responsavelParentesco}
-                placeholder="Selecione..."
-              />
-
-              <Input
-                label="Telefone do responsável"
-                value={form.responsavelTelefone}
-                onChange={(v) => set("responsavelTelefone", maskPhone(v))}
-                error={errors.responsavelTelefone}
                 placeholder="(00) 00000-0000"
                 maxLength={15}
                 inputMode="tel"
@@ -633,7 +676,7 @@ export default function Cadastro() {
               />
 
               <SelectField
-                label="Autoriza contato por WhatsApp?"
+                label="Autoriza contato pelo WhatsApp do adolescente?"
                 options={simNaoOptions}
                 value={
                   simNaoOptions.find(
@@ -650,6 +693,7 @@ export default function Cadastro() {
               <label className="block text-sm font-medium text-foreground mb-1">
                 Observações do responsável
               </label>
+
               <textarea
                 value={form.observacoesResponsavel}
                 onChange={(e) => set("observacoesResponsavel", e.target.value)}
@@ -722,34 +766,43 @@ export default function Cadastro() {
               <p>
                 <strong>1. Coleta de Dados</strong>
               </p>
+
               <p>
                 Coletamos apenas os dados necessários para o cadastro de
-                adolescentes do Geração Teen, incluindo dados pessoais,
-                endereço, dados opcionais de pai e mãe, dados do responsável,
-                autorizações e informações de batismo.
+                adolescentes do Geração Teen, incluindo dados pessoais do
+                adolescente, dados do responsável legal, endereço, dados
+                opcionais de filiação, autorizações e informações de batismo.
               </p>
 
               <p>
                 <strong>2. Finalidade</strong>
               </p>
+
               <p>
                 Os dados coletados são utilizados exclusivamente para gestão
-                interna do Geração Teen, organização de atividades, eventos e
-                comunicação com os participantes e responsáveis.
+                interna do Geração Teen, organização de atividades, eventos,
+                acompanhamento por congregação e comunicação com os participantes
+                e responsáveis.
               </p>
 
               <p>
                 <strong>3. Autorizações</strong>
               </p>
+
               <p>
-                As autorizações informadas pelo responsável serão utilizadas
-                para controle interno sobre participação, uso de imagem e
-                contato por WhatsApp.
+                As autorizações informadas pelo responsável serão utilizadas para
+                controle interno sobre participação, uso de imagem e contato pelo
+                WhatsApp informado no cadastro. Mensagens de aniversário e
+                comunicados do Geração Teen poderão ser enviados ao WhatsApp do
+                adolescente somente quando houver autorização. Assuntos
+                financeiros, campanhas de camisas e pagamentos devem ser tratados
+                preferencialmente com o responsável.
               </p>
 
               <p>
                 <strong>4. Compartilhamento</strong>
               </p>
+
               <p>
                 Os dados não serão compartilhados com terceiros, exceto quando
                 exigido por lei ou mediante autorização adequada.
@@ -758,6 +811,7 @@ export default function Cadastro() {
               <p>
                 <strong>5. Armazenamento e Segurança</strong>
               </p>
+
               <p>
                 Os dados são armazenados de forma segura com acesso restrito
                 apenas às lideranças e pessoas autorizadas.
@@ -766,6 +820,7 @@ export default function Cadastro() {
               <p>
                 <strong>6. Direitos do Titular</strong>
               </p>
+
               <p>
                 O titular ou responsável legal pode solicitar acesso, correção
                 ou exclusão dos dados, conforme a legislação aplicável.
@@ -774,6 +829,7 @@ export default function Cadastro() {
               <p>
                 <strong>7. Base Legal</strong>
               </p>
+
               <p>
                 O tratamento dos dados é realizado com base no consentimento,
                 conforme a Lei 13.709/2018, Lei Geral de Proteção de Dados.

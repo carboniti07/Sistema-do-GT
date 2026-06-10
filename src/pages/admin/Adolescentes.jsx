@@ -103,15 +103,6 @@ function onlyDigits(value = "") {
   return String(value || "").replace(/\D/g, "");
 }
 
-function maskCPF(value = "") {
-  const digits = String(value).replace(/\D/g, "");
-
-  if (digits.length !== 11) {
-    return "***.***.***-**";
-  }
-
-  return `${digits.slice(0, 3)}.***.***-${digits.slice(9, 11)}`;
-}
 
 function formatDateBR(date) {
   if (!date) return "-";
@@ -223,7 +214,6 @@ export default function Adolescentes() {
         const searchable = [
           adolescente.nome,
           adolescente.telefone,
-          adolescente.cpf,
           congregacaoLabel,
           adolescente.nomeMae,
           adolescente.telefoneMae,
@@ -927,7 +917,7 @@ export default function Adolescentes() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome, CPF, telefone, congregação ou responsável..."
+              placeholder="Buscar por nome, telefone, congregação ou responsável..."
               className="input-field pl-10"
             />
           </div>
@@ -1052,7 +1042,6 @@ export default function Adolescentes() {
                 value={`${calcAge(selectedAdolescente.nascimento)} anos`}
               />
               <DetailItem label="Sexo" value={selectedAdolescente.sexo} />
-              <DetailItem label="CPF" value={maskCPF(selectedAdolescente.cpf)} />
               <DetailItem
                 label="Telefone"
                 value={formatPhone(selectedAdolescente.telefone)}

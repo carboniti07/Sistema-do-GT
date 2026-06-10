@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Shirt,
+  Gift,
 } from "lucide-react";
 
 import { useAuth } from "../auth/AuthContext.jsx";
@@ -35,6 +36,7 @@ export default function Sidebar({ onClose }) {
       items.push(
         { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { path: "/admin/adolescentes", label: "Adolescentes", icon: Users },
+        { path: "/admin/aniversarios", label: "Aniversários", icon: Gift },
         { path: "/admin/relatorios", label: "Relatórios", icon: BarChart3 }
       );
     }
@@ -109,6 +111,7 @@ export default function Sidebar({ onClose }) {
                   ? "bg-primary/10 text-primary"
                   : "text-foreground hover:bg-surface-2"
               }`}
+              type="button"
             >
               <span
                 className={`absolute left-0 top-0 h-full w-1 ${
@@ -131,6 +134,7 @@ export default function Sidebar({ onClose }) {
             w-full box-border relative flex items-center gap-3 px-4 py-2.5 min-h-[44px]
             rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all
           "
+          type="button"
         >
           <LogOut size={18} />
           <span className="leading-none">Sair</span>
