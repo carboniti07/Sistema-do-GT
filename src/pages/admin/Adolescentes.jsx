@@ -103,6 +103,15 @@ function onlyDigits(value = "") {
   return String(value || "").replace(/\D/g, "");
 }
 
+function safeMaskedCpf(value = "") {
+  const text = String(value || "").trim();
+
+  if (!text || text === "***.***.***-**") {
+    return "-";
+  }
+
+  return text;
+}
 
 function formatDateBR(date) {
   if (!date) return "-";
@@ -1043,12 +1052,16 @@ export default function Adolescentes() {
               />
               <DetailItem label="Sexo" value={selectedAdolescente.sexo} />
               <DetailItem
-                label="Telefone"
+                label="CPF do adolescente"
+                value={safeMaskedCpf(selectedAdolescente.cpfMascarado)}
+              />
+              <DetailItem
+                label="Telefone do adolescente"
                 value={formatPhone(selectedAdolescente.telefone)}
               />
             </DetailSection>
 
-            <DetailSection title="Pais e Responsável">
+            <DetailSection title="Responsável e Filiação">
               <DetailItem
                 label="Nome da mãe"
                 value={selectedAdolescente.nomeMae || "-"}
@@ -1068,6 +1081,10 @@ export default function Adolescentes() {
               <DetailItem
                 label="Responsável principal"
                 value={selectedAdolescente.responsavelNome}
+              />
+              <DetailItem
+                label="CPF do responsável"
+                value={safeMaskedCpf(selectedAdolescente.responsavelCpfMascarado)}
               />
               <DetailItem
                 label="Parentesco ou vínculo"
@@ -1199,7 +1216,7 @@ export default function Adolescentes() {
               </div>
             </EditSection>
 
-            <EditSection title="Pais e Responsável">
+            <EditSection title="Responsável e Filiação">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Input
                   label="Nome da mãe"

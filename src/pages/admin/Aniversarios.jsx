@@ -7,6 +7,8 @@ import {
   Search,
   X,
   ShieldAlert,
+  Copy,
+  PhoneOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -81,17 +83,40 @@ function calcAge(nascimento) {
   return age;
 }
 
-function nextBirthdayDate(nascimento) {
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function endOfCurrentMonth() {
+  const today = new Date();
+  const date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function birthdayThisYearDate(nascimento) {
   const birth = new Date(nascimento);
 
   if (Number.isNaN(birth.getTime())) return null;
 
   const today = new Date();
+  const date = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function nextBirthdayDate(nascimento) {
+  const birth = new Date(nascimento);
+
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = startOfToday();
   const currentYear = today.getFullYear();
 
   let next = new Date(currentYear, birth.getMonth(), birth.getDate());
-
-  today.setHours(0, 0, 0, 0);
   next.setHours(0, 0, 0, 0);
 
   if (next < today) {
@@ -107,38 +132,24 @@ function daysUntilBirthday(nascimento) {
 
   if (!next) return 9999;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfToday();
 
   return Math.round((next.getTime() - today.getTime()) / 86400000);
 }
 
-function birthdayMonth(nascimento) {
-  const birth = new Date(nascimento);
-
-  if (Number.isNaN(birth.getTime())) return -1;
-
-  return birth.getMonth();
-}
-
-function birthdayDay(nascimento) {
-  const birth = new Date(nascimento);
-
-  if (Number.isNaN(birth.getTime())) return -1;
-
-  return birth.getDate();
-}
-
 function isInPeriod(adolescente, periodo) {
   const dias = daysUntilBirthday(adolescente.nascimento);
-  const today = new Date();
 
   if (periodo === "hoje") return dias === 0;
   if (periodo === "semana") return dias >= 0 && dias <= 7;
   if (periodo === "proximo30") return dias >= 0 && dias <= 30;
 
   if (periodo === "mes") {
-    return birthdayMonth(adolescente.nascimento) === today.getMonth();
+    const birthday = birthdayThisYearDate(adolescente.nascimento);
+
+    if (!birthday) return false;
+
+    return birthday >= startOfToday() && birthday <= endOfCurrentMonth();
   }
 
   return true;
@@ -160,18 +171,20 @@ function buildBirthdayMessage(adolescente, modelo) {
   if (modelo === "local") {
     return `Paz do Senhor, ${nome}!
 
-Hoje lembrei de você e queria te desejar um feliz aniversário.
+Hoje é um dia especial e eu quero te desejar um feliz aniversário.
 
-Que Deus cuide do seu coração, dos seus sonhos e dos seus caminhos. Continue firme, porque sua vida é importante para Deus e para nós.
+Que Deus abençoe sua vida, fortaleça sua fé e conduza seus passos neste novo ciclo.
 
-Aproveite seu dia. Feliz aniversário!`;
+Continue firme. Sua vida é preciosa para Deus e importante para nós.
+
+Feliz aniversário!`;
   }
 
   return `Paz do Senhor, ${nome}!
 
-Em nome do Geração Teen, queremos celebrar sua vida hoje.
+O Geração Teen celebra sua vida neste dia especial.
 
-Que o Senhor te fortaleça, te dê direção e faça este novo ciclo ser marcado por crescimento, alegria e presença de Deus.
+Que o Senhor te dê direção, alegria, crescimento espiritual e um novo ciclo cheio da presença de Deus.
 
 Receba nosso carinho. Feliz aniversário!`;
 }
@@ -189,7 +202,33 @@ function getWhatsAppPhone(value = "") {
     return `55${digits}`;
   }
 
-  return digits;
+  return "";
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+async function copyBirthdayMessage(adolescente, modelo) {
+  try {
+    await copyText(buildBirthdayMessage(adolescente, modelo));
+    toast.success("Mensagem copiada");
+  } catch {
+    toast.error("Não foi possível copiar a mensagem");
+  }
 }
 
 function openWhatsApp(adolescente, modelo) {
@@ -201,7 +240,7 @@ function openWhatsApp(adolescente, modelo) {
   const phone = getWhatsAppPhone(adolescente.telefone);
 
   if (!phone) {
-    toast.error("Telefone do adolescente inválido");
+    toast.error("Telefone do adolescente inválido ou não informado");
     return;
   }
 
@@ -242,28 +281,29 @@ export default function Aniversarios() {
   }, [isLimited, congregacoesDoUsuario]);
 
   async function loadData() {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = await listAniversariantes({
-      periodo,
-      congregacaoId: congregacao,
-    });
+      const data = await listAniversariantes({ periodo });
 
-    setAdolescentes(
-      Array.isArray(data?.aniversariantes) ? data.aniversariantes : []
-    );
-  } catch (err) {
-    toast.error(err?.message || "Erro ao carregar aniversariantes");
-    setAdolescentes([]);
-  } finally {
-    setLoading(false);
+      setAdolescentes(
+        Array.isArray(data?.aniversariantes) ? data.aniversariantes : []
+      );
+    } catch (err) {
+      toast.error(err?.message || "Erro ao carregar aniversariantes");
+      setAdolescentes([]);
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
- useEffect(() => {
-  loadData();
-}, [periodo, congregacao]);
+  useEffect(() => {
+    loadData();
+  }, [periodo]);
+
+  useEffect(() => {
+    setModelo(getDefaultMessageModel(user));
+  }, [user?.role]);
 
   const filtered = useMemo(() => {
     return adolescentes
@@ -358,6 +398,8 @@ export default function Aniversarios() {
       key: "acoes",
       label: "Mensagem",
       render: (_, row) => {
+        const hasPhone = !!getWhatsAppPhone(row.telefone);
+
         if (!row.autorizaWhatsApp) {
           return (
             <div className="inline-flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
@@ -367,15 +409,35 @@ export default function Aniversarios() {
           );
         }
 
+        if (!hasPhone) {
+          return (
+            <div className="inline-flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              <PhoneOff size={14} />
+              Sem telefone
+            </div>
+          );
+        }
+
         return (
-          <button
-            type="button"
-            onClick={() => openWhatsApp(row, modelo)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-95 transition-opacity"
-          >
-            <MessageCircle size={15} />
-            Enviar
-          </button>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              onClick={() => copyBirthdayMessage(row, modelo)}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface-2 transition-colors"
+            >
+              <Copy size={15} />
+              Copiar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWhatsApp(row, modelo)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-95 transition-opacity"
+            >
+              <MessageCircle size={15} />
+              WhatsApp
+            </button>
+          </div>
         );
       },
     },

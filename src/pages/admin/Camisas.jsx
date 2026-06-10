@@ -20,7 +20,7 @@ import {
   criarCampanhaCamisa,
   atualizarStatusCampanha,
   excluirCampanhaCamisa,
-} from "../../lib/camisaApi";
+} from "../../lib/camisaApi.js";
 import {
   Shirt,
   DollarSign,
@@ -270,17 +270,64 @@ function positionIcon(posicao) {
   return `#${posicao}`;
 }
 
-function whatsappUrl(telefone, mensagem) {
-  const phone = String(telefone || "").replace(/\D/g, "");
-  return `https://wa.me/55${phone}?text=${encodeURIComponent(mensagem)}`;
+function getWhatsAppPhone(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  if (digits.startsWith("55") && digits.length >= 12) {
+    return digits;
+  }
+
+  if (digits.length === 10 || digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  return "";
+}
+
+function getNomeResponsavel(reserva) {
+  return String(reserva?.responsavelNome || "").trim() || "responsável";
+}
+
+function getTelefoneResponsavel(reserva) {
+  return String(reserva?.responsavelTelefone || "").trim();
 }
 
 function mensagemReserva(reserva) {
+  const responsavel = getNomeResponsavel(reserva);
+  const adolescente = String(reserva?.nome || "").trim() || "adolescente";
+
   if (reserva.statusPagamento === "confirmado") {
-    return `Paz do Senhor, ${reserva.nome}. Seu pagamento da camisa do Geração Teen foi confirmado. Deus abençoe.`;
+    return `Paz do Senhor, ${responsavel}!
+
+O pagamento da camisa do Geração Teen referente ao cadastro de ${adolescente} foi confirmado.
+
+Deus abençoe.`;
   }
 
-  return `Paz do Senhor, ${reserva.nome}. Identificamos sua reserva da camisa do Geração Teen. Consta como pagamento pendente. Assim que realizar o pagamento, envie o comprovante para confirmação.`;
+  return `Paz do Senhor, ${responsavel}!
+
+Estamos entrando em contato sobre a campanha de camisas do Geração Teen referente ao cadastro de ${adolescente}.
+
+Consta como pagamento pendente. Assim que realizar o pagamento, envie o comprovante para confirmação.
+
+Deus abençoe.`;
+}
+
+function abrirWhatsAppResponsavel(reserva) {
+  const phone = getWhatsAppPhone(getTelefoneResponsavel(reserva));
+
+  if (!phone) {
+    toast.error("Responsável sem telefone cadastrado");
+    return;
+  }
+
+  window.open(
+    `https://wa.me/${phone}?text=${encodeURIComponent(mensagemReserva(reserva))}`,
+    "_blank",
+    "noopener,noreferrer"
+  );
 }
 
 function getReservaItens(reserva) {
@@ -468,8 +515,8 @@ async function salvarFinanceiroReserva(e) {
       if (term) {
         const alvo = [
           r.nome,
-          r.cpf,
-          r.telefone,
+          r.responsavelNome,
+          r.responsavelTelefone,
           r.congregacao,
           r.tamanho,
           r.formaPagamento,
@@ -968,8 +1015,8 @@ async function salvarFinanceiroReserva(e) {
       styleHeader(
         wsReservas.addRow([
           "Nome",
-          "CPF",
-          "Telefone",
+          "Responsável",
+          "Telefone responsável",
           "Congregação",
           "Tamanho principal",
           "Quantidade",
@@ -986,8 +1033,8 @@ async function salvarFinanceiroReserva(e) {
       filtered.forEach((r, idx) => {
         const row = wsReservas.addRow([
           r.nome,
-          maskCPF(r.cpf),
-          formatPhone(r.telefone),
+          r.responsavelNome || "-",
+          formatPhone(r.responsavelTelefone),
           r.congregacao,
           r.tamanho,
           r.quantidade,
@@ -1020,12 +1067,11 @@ async function salvarFinanceiroReserva(e) {
       wsReservas.getColumn(8).numFmt = '"R$" #,##0.00';
       wsReservas.getColumn(9).numFmt = '"R$" #,##0.00';
 
-      styleTitle(wsItens, "Geração Teen | Itens Individuais das Camisas", "A1:H1");
+      styleTitle(wsItens, "Geração Teen | Itens Individuais das Camisas", "A1:G1");
       wsItens.addRow([]);
       styleHeader(
         wsItens.addRow([
           "Reserva",
-          "CPF",
           "Titular",
           "Congregação",
           "Pessoa",
@@ -1040,7 +1086,6 @@ async function salvarFinanceiroReserva(e) {
         getReservaItens(r).forEach((item) => {
           const row = wsItens.addRow([
             r.id,
-            maskCPF(r.cpf),
             r.nome,
             r.congregacao,
             item.nomePessoa,
@@ -1055,7 +1100,6 @@ async function salvarFinanceiroReserva(e) {
 
       wsItens.columns = [
         { width: 28 },
-        { width: 18 },
         { width: 30 },
         { width: 34 },
         { width: 30 },
@@ -1436,7 +1480,7 @@ async function salvarFinanceiroReserva(e) {
 
         <Card>
           <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-7 gap-3 mb-5">
-            <Input label="Buscar" value={search} onChange={setSearch} placeholder="Nome, CPF, pessoa ou telefone" />
+            <Input label="Buscar" value={search} onChange={setSearch} placeholder="Nome, responsável, pessoa ou telefone" />
 
             <SelectField
               label="Congregação"
@@ -1487,8 +1531,8 @@ async function salvarFinanceiroReserva(e) {
                 <tr className="border-b border-border">
                   {[
                     "Nome",
-                    "CPF",
-                    "Telefone",
+                    "Responsável",
+                    "Tel. responsável",
                     "Congregação",
                     "Itens",
                     "Qtd.",
@@ -1526,8 +1570,8 @@ async function salvarFinanceiroReserva(e) {
                           <span>{r.nome}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{maskCPF(r.cpf)}</td>
-                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatPhone(r.telefone)}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.responsavelNome || "-"}</td>
+                      <td className="py-2.5 px-4 text-sm whitespace-nowrap">{formatPhone(r.responsavelTelefone) || "-"}</td>
                       <td className="py-2.5 px-4 text-sm whitespace-nowrap">{r.congregacao}</td>
                       <td className="py-2.5 px-4 text-sm min-w-[220px]">
                         <div className="flex flex-wrap gap-1">
@@ -1588,15 +1632,14 @@ async function salvarFinanceiroReserva(e) {
                             </IconButton>
                           )}
 
-                          <a
-                            href={whatsappUrl(r.telefone, mensagemReserva(r))}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => abrirWhatsAppResponsavel(r)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2 transition-colors"
-                            title="Abrir WhatsApp"
+                            title="Abrir WhatsApp do responsável"
                           >
                             <MessageCircle size={16} />
-                          </a>
+                          </button>
 
                           <IconButton title="Copiar mensagem" onClick={() => copiarMensagem(r)}>
                             <Copy size={16} />
@@ -1631,8 +1674,8 @@ async function salvarFinanceiroReserva(e) {
           {selectedReserva && (
             <div className="space-y-4 text-sm">
               <Detail label="Nome" value={selectedReserva.nome} />
-              <Detail label="CPF" value={maskCPF(selectedReserva.cpf)} />
-              <Detail label="Telefone" value={formatPhone(selectedReserva.telefone)} />
+              <Detail label="Responsável" value={selectedReserva.responsavelNome || "-"} />
+              <Detail label="Telefone do responsável" value={formatPhone(selectedReserva.responsavelTelefone)} />
               <Detail label="Congregação" value={selectedReserva.congregacao} />
               <Detail label="Quantidade" value={selectedReserva.quantidade} />
               <Detail label="Valor unitário" value={formatMoney(selectedReserva.valorUnitario)} />
@@ -2207,14 +2250,13 @@ async function salvarFinanceiroReserva(e) {
                   />
                 )}
 
-              <a
-                href={whatsappUrl(acoesMobileReserva.telefone, mensagemReserva(acoesMobileReserva))}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full rounded-xl border border-border px-4 py-3 text-sm text-center hover:bg-surface-2"
-              >
-                Abrir WhatsApp
-              </a>
+              <MobileAction
+                label="Abrir WhatsApp do responsável"
+                onClick={() => {
+                  abrirWhatsAppResponsavel(acoesMobileReserva);
+                  setAcoesMobileReserva(null);
+                }}
+              />
 
               <MobileAction
                 label="Copiar mensagem"

@@ -160,6 +160,7 @@ export default function Cadastro() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [loadingCEP, setLoadingCEP] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cadastroFinalizado, setCadastroFinalizado] = useState(null);
 
   const idade = useMemo(() => calcularIdadePtBR(form.nascimento), [form.nascimento]);
   const deveIrParaUmadrur = idade !== null && idade >= 17;
@@ -329,6 +330,11 @@ export default function Cadastro() {
 
       await createAdolescente(payload);
 
+      setCadastroFinalizado({
+        nome: payload.nome,
+        congregacao: form.congregacao,
+      });
+
       toast.success("Adolescente cadastrado com sucesso!");
       setForm(initialForm);
       setErrors({});
@@ -359,6 +365,72 @@ export default function Cadastro() {
     ],
     []
   );
+
+  if (cadastroFinalizado) {
+    return (
+      <div
+        className="min-h-screen flex items-start justify-center px-4 py-6 bg-cover bg-center"
+        style={{
+          backgroundImage: `linear-gradient(135deg, rgba(255,160,60,0.92), rgba(255,70,0,0.92)), url(${bgImg})`,
+        }}
+      >
+        <div className="w-full max-w-[640px]">
+          <Card className="w-full bg-card/92 border border-white/18 shadow-[0_18px_50px_rgba(0,0,0,0.16)] rounded-3xl">
+            <div className="space-y-5 text-center">
+              <div className="flex justify-center">
+                <Logo size="cadastro" />
+              </div>
+
+              <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-5 text-green-900">
+                <h1 className="text-xl font-heading font-bold">
+                  Cadastro realizado com sucesso!
+                </h1>
+
+                <p className="mt-3 text-sm leading-relaxed">
+                  O cadastro de <strong>{cadastroFinalizado.nome}</strong> foi
+                  recebido pelo Geração Teen.
+                </p>
+
+                <p className="mt-2 text-sm leading-relaxed">
+                  Congregação: <strong>{cadastroFinalizado.congregacao}</strong>
+                </p>
+
+                <p className="mt-3 text-sm leading-relaxed">
+                  A liderança local poderá entrar em contato conforme as
+                  autorizações informadas no cadastro.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 sm:justify-center">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setCadastroFinalizado(null);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                  Fazer novo cadastro
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  type="button"
+                  onClick={() => {
+                    setCadastroFinalizado(null);
+                    window.location.href = "/";
+                  }}
+                >
+                  Voltar ao início
+                </Button>
+              </div>
+
+              <Footer className="mt-4" />
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
