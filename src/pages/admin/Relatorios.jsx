@@ -245,7 +245,7 @@ export default function Relatorios() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
           <StatCard
             icon={Building2}
             value={loading ? "..." : congregacoesVisiveis.length}
@@ -261,7 +261,7 @@ export default function Relatorios() {
           <StatCard
             icon={Droplets}
             value={loading ? "..." : totals.batAguas}
-            label="Batizados nas Águas"
+            label="Batizados nas águas"
           />
 
           <StatCard
@@ -280,6 +280,12 @@ export default function Relatorios() {
             icon={ImageIcon}
             value={loading ? "..." : totals.autorizaImagem}
             label="Imagem autorizada"
+          />
+
+          <StatCard
+            icon={MessageCircle}
+            value={loading ? "..." : totals.autorizaWhatsApp}
+            label="WhatsApp autorizado"
           />
         </div>
 
@@ -318,7 +324,10 @@ export default function Relatorios() {
                   >
                     <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
                     <XAxis dataKey="mes" tick={{ fill: MUTED, fontSize: 12 }} />
-                    <YAxis allowDecimals={false} tick={{ fill: MUTED, fontSize: 12 }} />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fill: MUTED, fontSize: 12 }}
+                    />
                     <Tooltip content={<CustomTooltip labelPrefix="Mês" />} />
                     <Line
                       type="monotone"
@@ -374,7 +383,10 @@ export default function Relatorios() {
                   >
                     <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
                     <XAxis dataKey="congregacao" hide />
-                    <YAxis allowDecimals={false} tick={{ fill: MUTED, fontSize: 12 }} />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fill: MUTED, fontSize: 12 }}
+                    />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -391,7 +403,11 @@ export default function Relatorios() {
                         );
                       }}
                     />
-                    <Bar dataKey="total" fill={PRIMARY} radius={[10, 10, 0, 0]} />
+                    <Bar
+                      dataKey="total"
+                      fill={PRIMARY}
+                      radius={[10, 10, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -410,7 +426,7 @@ export default function Relatorios() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <ResumoItem
-              title="Batismo nas Águas"
+              title="Batismo nas águas"
               sim={recortes.batAguasSim}
               nao={recortes.batAguasNao}
             />

@@ -12,10 +12,6 @@ import {
   RefreshCcw,
   CalendarDays,
   ArrowRight,
-  CheckCircle2,
-  ImageIcon,
-  MessageCircle,
-  FileText,
 } from "lucide-react";
 import {
   congregacoes,
@@ -73,64 +69,6 @@ function formatPhone(value = "") {
   return value || "-";
 }
 
-function startOfToday() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function endOfCurrentMonth() {
-  const today = new Date();
-  const date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  date.setHours(23, 59, 59, 999);
-  return date;
-}
-
-function birthdayThisYearDate(nascimento) {
-  const birth = new Date(nascimento);
-
-  if (Number.isNaN(birth.getTime())) return null;
-
-  const today = new Date();
-  const date = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-  date.setHours(0, 0, 0, 0);
-
-  return date;
-}
-
-function isBirthdayFromTodayUntilEndOfMonth(nascimento) {
-  const birthday = birthdayThisYearDate(nascimento);
-
-  if (!birthday) return false;
-
-  return birthday >= startOfToday() && birthday <= endOfCurrentMonth();
-}
-
-function isCreatedThisMonth(createdAt) {
-  if (!createdAt) return false;
-
-  const created = new Date(createdAt);
-
-  if (Number.isNaN(created.getTime())) return false;
-
-  const today = new Date();
-
-  return (
-    created.getMonth() === today.getMonth() &&
-    created.getFullYear() === today.getFullYear()
-  );
-}
-
-function hasCpfInfo(adolescente) {
-  const masked = String(adolescente?.cpfMascarado || "").trim();
-
-  if (!masked || masked === "***.***.***-**") {
-    return false;
-  }
-
-  return true;
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -179,40 +117,6 @@ export default function Dashboard() {
 
   const batES = adolescentes.filter(
     (adolescente) => adolescente.batismoES
-  ).length;
-
-  const autorizaParticipacao = adolescentes.filter(
-    (adolescente) => adolescente.autorizaParticipacao
-  ).length;
-
-  const autorizaImagem = adolescentes.filter(
-    (adolescente) => adolescente.autorizaImagem
-  ).length;
-
-  const autorizaWhatsApp = adolescentes.filter(
-    (adolescente) => adolescente.autorizaWhatsApp
-  ).length;
-
-  const cadastrosMes = adolescentes.filter((adolescente) =>
-    isCreatedThisMonth(adolescente.createdAt)
-  ).length;
-
-  const aniversariantesMes = adolescentes.filter((adolescente) =>
-    isBirthdayFromTodayUntilEndOfMonth(adolescente.nascimento)
-  ).length;
-
-  const semCpf = adolescentes.filter((adolescente) => !hasCpfInfo(adolescente)).length;
-
-  const semTelefoneAdolescente = adolescentes.filter(
-    (adolescente) => !onlyDigits(adolescente.telefone)
-  ).length;
-
-  const semAutorizacaoImagem = adolescentes.filter(
-    (adolescente) => !adolescente.autorizaImagem
-  ).length;
-
-  const semAutorizacaoWhatsApp = adolescentes.filter(
-    (adolescente) => !adolescente.autorizaWhatsApp
   ).length;
 
   const congDist = {};
@@ -353,50 +257,6 @@ export default function Dashboard() {
         />
 
         <StatCard
-          icon={CalendarDays}
-          value={loading ? "..." : cadastrosMes}
-          label="Cadastros do mês"
-        />
-
-        <StatCard
-          icon={GiftIcon}
-          value={loading ? "..." : aniversariantesMes}
-          label="Aniversariantes do mês"
-        />
-
-        <StatCard
-          icon={MessageCircle}
-          value={loading ? "..." : autorizaWhatsApp}
-          label="WhatsApp autorizado"
-        />
-
-        <StatCard
-          icon={FileText}
-          value={loading ? "..." : semCpf}
-          label="Sem CPF do adolescente"
-        />
-
-        <StatCard
-          icon={MessageCircle}
-          value={loading ? "..." : semTelefoneAdolescente}
-          label="Sem telefone do adolescente"
-        />
-
-        <StatCard
-          icon={ImageIcon}
-          value={loading ? "..." : semAutorizacaoImagem}
-          label="Sem autorização de imagem"
-        />
-
-        <StatCard
-          icon={Sparkles}
-          value={loading ? "..." : `${avgAge} anos`}
-          label="Média de idade"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4 mb-4 md:mb-6">
-        <StatCard
           icon={Droplets}
           value={loading ? "..." : batAguas}
           label="Batizados nas águas"
@@ -409,27 +269,9 @@ export default function Dashboard() {
         />
 
         <StatCard
-          icon={CheckCircle2}
-          value={loading ? "..." : autorizaParticipacao}
-          label="Participação autorizada"
-        />
-
-        <StatCard
-          icon={ImageIcon}
-          value={loading ? "..." : autorizaImagem}
-          label="Imagem autorizada"
-        />
-
-        <StatCard
-          icon={MessageCircle}
-          value={loading ? "..." : semAutorizacaoWhatsApp}
-          label="Sem autorização WhatsApp"
-        />
-
-        <StatCard
-          icon={FileText}
-          value={loading ? "..." : semTelefoneAdolescente + semCpf}
-          label="Dados opcionais pendentes"
+          icon={CalendarDays}
+          value={loading ? "..." : `${avgAge} anos`}
+          label="Média de idade"
         />
       </div>
 
@@ -564,8 +406,4 @@ export default function Dashboard() {
       </Card>
     </AdminLayout>
   );
-}
-
-function GiftIcon(props) {
-  return <CalendarDays {...props} />;
 }
